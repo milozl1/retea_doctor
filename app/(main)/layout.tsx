@@ -1,0 +1,47 @@
+import { HeaderServer } from "@/components/layout/header-server";
+import { SidebarServer } from "@/components/layout/sidebar-server";
+import { RightSidebar } from "@/components/layout/right-sidebar";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import { ReportModal } from "@/components/modals/report-modal";
+
+export default function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-[#040711]">
+      {/* Ambient background effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/[0.03] rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/[0.02] rounded-full blur-[120px]" />
+      </div>
+
+      <HeaderServer />
+      <div className="relative flex pt-16">
+        {/* Left Sidebar */}
+        <aside className="hidden lg:block fixed left-0 top-16 w-[260px] h-[calc(100vh-4rem)] overflow-y-auto scrollbar-thin border-r border-white/[0.04] bg-[#060a14]/60 backdrop-blur-sm">
+          <SidebarServer />
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 lg:ml-[260px] xl:mr-[320px] min-h-[calc(100vh-4rem)]">
+          <div className="max-w-2xl mx-auto px-4 py-5 pb-24 lg:pb-5">
+            {children}
+          </div>
+        </main>
+
+        {/* Right Sidebar */}
+        <aside className="hidden xl:block fixed right-0 top-16 w-[320px] h-[calc(100vh-4rem)] overflow-y-auto scrollbar-thin border-l border-white/[0.04] bg-[#060a14]/40 backdrop-blur-sm p-4">
+          <RightSidebar />
+        </aside>
+      </div>
+
+      {/* Mobile Navigation */}
+      <MobileNav />
+
+      {/* Global Modals */}
+      <ReportModal />
+    </div>
+  );
+}
