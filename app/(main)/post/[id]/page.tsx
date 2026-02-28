@@ -14,7 +14,7 @@ import { currentUser } from "@/lib/auth";
 import { ExternalLink, Lock } from "lucide-react";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 async function getPost(id: number) {
@@ -49,7 +49,8 @@ async function getPost(id: number) {
 }
 
 export default async function PostPage({ params }: PageProps) {
-  const postId = parseInt(params.id);
+  const { id } = await params;
+  const postId = parseInt(id);
   if (isNaN(postId)) notFound();
 
   const result = await getPost(postId);

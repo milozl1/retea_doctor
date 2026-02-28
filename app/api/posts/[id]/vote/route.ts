@@ -8,7 +8,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest, { params }: Params) {
       );
     }
 
-    const postId = parseInt(params.id);
+    const { id } = await params;
+    const postId = parseInt(id);
     if (isNaN(postId)) {
       return NextResponse.json({ error: "ID invalid" }, { status: 400 });
     }

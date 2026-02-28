@@ -5,18 +5,19 @@ import { auth } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 
 interface Params {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function GET(_request: NextRequest, { params }: Params) {
   const start = Date.now();
   try {
+    const { slug } = await params;
     const { userId } = await auth();
 
     const [community] = await db
       .select()
       .from(communities)
-      .where(eq(communities.slug, params.slug))
+      .where(eq(communities.slug, slug))
       .limit(1);
 
     if (!community) {

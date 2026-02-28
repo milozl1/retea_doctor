@@ -9,7 +9,7 @@ export interface User {
 }
 
 export async function auth(): Promise<{ userId: string | null }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -21,7 +21,7 @@ export async function authWithUser(): Promise<{
   userId: string | null;
   user: User | null;
 }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -10,7 +10,7 @@ import { currentUser } from "@/lib/auth";
 import { Award, FileText, MessageSquare } from "lucide-react";
 
 interface PageProps {
-  params: { userId: string };
+  params: Promise<{ userId: string }>;
 }
 
 const EXPERIENCE_LABELS: Record<string, string> = {
@@ -43,12 +43,13 @@ async function getUserData(userId: string) {
 }
 
 export default async function UserProfilePage({ params }: PageProps) {
-  const data = await getUserData(params.userId);
+  const { userId } = await params;
+  const data = await getUserData(userId);
   if (!data) notFound();
 
   const { user, posts: userPosts } = data;
   const currentUserData = await currentUser();
-  const _isOwnProfile = currentUserData?.id === params.userId;
+  const _isOwnProfile = currentUserData?.id === userId;
 
   return (
     <div className="space-y-6">

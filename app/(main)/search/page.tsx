@@ -5,7 +5,7 @@ import { PostCard } from "@/components/feed/post-card";
 import { SearchBar } from "@/components/search/search-bar";
 
 interface PageProps {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }
 
 async function searchPosts(query: string) {
@@ -46,7 +46,8 @@ async function searchPosts(query: string) {
 }
 
 export default async function SearchPage({ searchParams }: PageProps) {
-  const query = searchParams.q ?? "";
+  const { q } = await searchParams;
+  const query = q ?? "";
   const results = await searchPosts(query);
 
   return (

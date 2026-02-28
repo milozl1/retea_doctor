@@ -8,7 +8,7 @@ import { z } from "zod";
 import { COMMENT_EDIT_WINDOW_MS } from "@/config/constants";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function PUT(request: NextRequest, { params }: Params) {
@@ -19,7 +19,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
     }
 
-    const commentId = parseInt(params.id);
+    const { id } = await params;
+    const commentId = parseInt(id);
     if (isNaN(commentId)) {
       return NextResponse.json({ error: "ID invalid" }, { status: 400 });
     }
@@ -80,7 +81,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
     }
 
-    const commentId = parseInt(params.id);
+    const { id } = await params;
+    const commentId = parseInt(id);
     if (isNaN(commentId)) {
       return NextResponse.json({ error: "ID invalid" }, { status: 400 });
     }

@@ -6,12 +6,13 @@ import { PlusCircle } from "lucide-react";
 import { currentUser } from "@/lib/auth";
 
 interface PageProps {
-  searchParams: { sort?: string };
+  searchParams: Promise<{ sort?: string }>;
 }
 
 export default async function HomePage({ searchParams }: PageProps) {
   const user = await currentUser();
-  const sort = (searchParams.sort as "hot" | "new" | "top") ?? "hot";
+  const { sort: sortParam } = await searchParams;
+  const sort = (sortParam as "hot" | "new" | "top") ?? "hot";
 
   return (
     <div className="space-y-4">

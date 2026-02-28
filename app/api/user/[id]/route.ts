@@ -4,16 +4,17 @@ import { networkUsers, posts, comments } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function GET(_request: NextRequest, { params }: Params) {
   const start = Date.now();
   try {
+    const { id } = await params;
     const [user] = await db
       .select()
       .from(networkUsers)
-      .where(eq(networkUsers.userId, params.id))
+      .where(eq(networkUsers.userId, id))
       .limit(1);
 
     if (!user) {
@@ -26,14 +27,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const userPosts = await db
       .select()
       .from(posts)
-      .where(and(eq(posts.userId, params.id), eq(posts.isDeleted, false)))
+      .where(and(eq(posts.userId, id), eq(posts.isDeleted, false)))
       .orderBy(desc(posts.createdAt))
       .limit(10);
 
     const userComments = await db
       .select()
       .from(comments)
-      .where(and(eq(comments.userId, params.id), eq(comments.isDeleted, false)))
+      .where(and(eq(comments.userId, id), eq(comments.isDeleted, false)))
       .orderBy(desc(comments.createdAt))
       .limit(10);
 

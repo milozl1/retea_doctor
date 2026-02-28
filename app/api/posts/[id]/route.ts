@@ -7,13 +7,14 @@ import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function GET(_request: NextRequest, { params }: Params) {
   const start = Date.now();
   try {
-    const postId = parseInt(params.id);
+    const { id } = await params;
+    const postId = parseInt(id);
     if (isNaN(postId)) {
       return NextResponse.json({ error: "ID invalid" }, { status: 400 });
     }
@@ -72,7 +73,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
     }
 
-    const postId = parseInt(params.id);
+    const { id } = await params;
+    const postId = parseInt(id);
     if (isNaN(postId)) {
       return NextResponse.json({ error: "ID invalid" }, { status: 400 });
     }
@@ -123,7 +125,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
     }
 
-    const postId = parseInt(params.id);
+    const { id } = await params;
+    const postId = parseInt(id);
     if (isNaN(postId)) {
       return NextResponse.json({ error: "ID invalid" }, { status: 400 });
     }

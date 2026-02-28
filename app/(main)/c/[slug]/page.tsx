@@ -11,8 +11,8 @@ import { defaultCommunities } from "@/config/communities";
 import { currentUser } from "@/lib/auth";
 
 interface PageProps {
-  params: { slug: string };
-  searchParams: { sort?: string };
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ sort?: string }>;
 }
 
 async function getCommunity(slug: string) {
@@ -29,11 +29,13 @@ async function getCommunity(slug: string) {
 }
 
 export default async function CommunityPage({ params, searchParams }: PageProps) {
-  const community = await getCommunity(params.slug);
+  const { slug } = await params;
+  const community = await getCommunity(slug);
   if (!community) notFound();
 
   const user = await currentUser();
-  const sort = (searchParams.sort as "hot" | "new" | "top") ?? "hot";
+  const { sort: sortParam } = await searchParams;
+  const sort = (sortParam as "hot" | "new" | "top") ?? "hot";
   const config = defaultCommunities.find((c) => c.slug === community.slug);
 
   return (
