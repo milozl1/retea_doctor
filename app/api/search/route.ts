@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q") || "";
 
-  const parsed = searchSchema.safeParse({ query: q });
+  const parsed = searchSchema.safeParse({ q });
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Termeni de căutare invalizi" },

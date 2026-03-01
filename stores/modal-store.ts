@@ -3,6 +3,7 @@ import { create } from "zustand";
 interface ModalData {
   postId?: number;
   commentId?: number;
+  onConfirmDelete?: () => void;
 }
 
 type ModalType = "report" | "deleteConfirm" | "createPost";

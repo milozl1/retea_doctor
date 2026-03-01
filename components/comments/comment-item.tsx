@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "@/lib/utils";
-import { MessageSquare, Flag, MoreHorizontal } from "lucide-react";
+import { MessageSquare, Flag, MoreHorizontal, Trash2, Pencil } from "lucide-react";
 import { useModal } from "@/stores/modal-store";
 import { MAX_COMMENT_DEPTH } from "@/config/constants";
 
@@ -40,17 +40,43 @@ interface CommentData {
 interface CommentItemProps {
   data: CommentData;
   postAuthorId: string;
+  currentUserId?: string | null;
   onRefresh?: () => void;
 }
 
-export function CommentItem({ data, postAuthorId, onRefresh }: CommentItemProps) {
+export function CommentItem({ data, postAuthorId, currentUserId, onRefresh }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(data.comment.content);
+  const [isSaving, setIsSaving] = useState(false);
   const { onOpen } = useModal();
 
   const { comment, author, children } = data;
   const isOP = comment.userId === postAuthorId;
+  const isOwner = !!currentUserId && comment.userId === currentUserId;
   const canReply = comment.depth < MAX_COMMENT_DEPTH && !comment.isDeleted;
+
+  async function handleSaveEdit() {
+    if (!editContent.trim() || editContent === comment.content) {
+      setIsEditing(false);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/comments/${comment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent.trim() }),
+      });
+      if (res.ok) {
+        setIsEditing(false);
+        onRefresh?.();
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   if (comment.isDeleted) {
     return (
@@ -66,6 +92,7 @@ export function CommentItem({ data, postAuthorId, onRefresh }: CommentItemProps)
                 key={child.comment.id}
                 data={child}
                 postAuthorId={postAuthorId}
+                currentUserId={currentUserId}
                 onRefresh={onRefresh}
               />
             ))}
@@ -132,10 +159,42 @@ export function CommentItem({ data, postAuthorId, onRefresh }: CommentItemProps)
           {!collapsed && (
             <>
               {/* Body */}
-              <MarkdownRenderer
-                content={comment.content}
-                className="text-sm"
-              />
+              {isEditing ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full min-h-[80px] bg-white/[0.04] border border-white/[0.08] rounded-lg p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50 resize-y"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs bg-primary hover:bg-primary/80"
+                      onClick={handleSaveEdit}
+                      disabled={isSaving || !editContent.trim()}
+                    >
+                      {isSaving ? "Se salvează..." : "Salvează"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-slate-500"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditContent(comment.content);
+                      }}
+                    >
+                      Anulează
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <MarkdownRenderer
+                  content={comment.content}
+                  className="text-sm"
+                />
+              )}
 
               {/* Actions */}
               <div className="flex items-center gap-2 pt-1">
@@ -150,6 +209,16 @@ export function CommentItem({ data, postAuthorId, onRefresh }: CommentItemProps)
                     Răspunde
                   </Button>
                 )}
+                {isOwner && !isEditing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-slate-500 hover:text-amber-400 gap-1"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -160,6 +229,16 @@ export function CommentItem({ data, postAuthorId, onRefresh }: CommentItemProps)
                 >
                   <Flag className="h-3 w-3" />
                 </Button>
+                {isOwner && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-slate-500 hover:text-emergency-500 gap-1"
+                    onClick={() => onOpen("deleteConfirm", { commentId: comment.id })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
 
               {/* Reply form */}
@@ -187,6 +266,7 @@ export function CommentItem({ data, postAuthorId, onRefresh }: CommentItemProps)
                       key={child.comment.id}
                       data={child}
                       postAuthorId={postAuthorId}
+                      currentUserId={currentUserId}
                       onRefresh={onRefresh}
                     />
                   ))}

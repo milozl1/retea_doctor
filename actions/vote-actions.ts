@@ -4,7 +4,16 @@ import { db } from "@/db/drizzle";
 import { votes, posts, comments, networkUsers, notifications, bookmarks, communityMemberships, communities } from "@/db/schema";
 import { requireAuth } from "@/lib/auth";
 import { getOrCreateNetworkUser } from "@/db/queries";
+import { calculateHotScore } from "@/lib/hot-score";
 import { eq, and, sql } from "drizzle-orm";
+
+async function updatePostHotScore(postId: number) {
+  const [post] = await db.select({ score: posts.score, createdAt: posts.createdAt }).from(posts).where(eq(posts.id, postId)).limit(1);
+  if (post) {
+    const newHot = calculateHotScore(post.score, post.createdAt);
+    await db.update(posts).set({ hotScore: newHot }).where(eq(posts.id, postId));
+  }
+}
 
 export async function voteOnPost(data: { postId: number; type: "upvote" | "downvote" }) {
   const { userId, user } = await requireAuth();
@@ -27,6 +36,11 @@ export async function voteOnPost(data: { postId: number; type: "upvote" | "downv
     return { error: "Postarea nu există" };
   }
 
+  // H6: Prevent self-voting
+  if (post.userId === userId) {
+    return { error: "Nu poți vota propria postare" };
+  }
+
   const [existingVote] = await db
     .select()
     .from(votes)
@@ -35,23 +49,45 @@ export async function voteOnPost(data: { postId: number; type: "upvote" | "downv
 
   if (existingVote) {
     if (existingVote.type === type) {
+      // Remove vote
       await db.delete(votes).where(eq(votes.id, existingVote.id));
       const scoreDelta = type === "upvote" ? -1 : 1;
-      await db.update(posts).set({ score: sql`${posts.score} + ${scoreDelta}` }).where(eq(posts.id, postId));
+      const upDelta = type === "upvote" ? -1 : 0;
+      const downDelta = type === "downvote" ? -1 : 0;
+      await db.update(posts).set({
+        score: sql`${posts.score} + ${scoreDelta}`,
+        upvotes: sql`GREATEST(${posts.upvotes} + ${upDelta}, 0)`,
+        downvotes: sql`GREATEST(${posts.downvotes} + ${downDelta}, 0)`,
+      }).where(eq(posts.id, postId));
       await db.update(networkUsers).set({ karma: sql`${networkUsers.karma} + ${scoreDelta}` }).where(eq(networkUsers.userId, post.userId));
+      await updatePostHotScore(postId);
       return { vote: null };
     } else {
+      // Change vote
       await db.update(votes).set({ type }).where(eq(votes.id, existingVote.id));
       const scoreDelta = type === "upvote" ? 2 : -2;
-      await db.update(posts).set({ score: sql`${posts.score} + ${scoreDelta}` }).where(eq(posts.id, postId));
+      const upDelta = type === "upvote" ? 1 : -1;
+      const downDelta = type === "downvote" ? 1 : -1;
+      await db.update(posts).set({
+        score: sql`${posts.score} + ${scoreDelta}`,
+        upvotes: sql`GREATEST(${posts.upvotes} + ${upDelta}, 0)`,
+        downvotes: sql`GREATEST(${posts.downvotes} + ${downDelta}, 0)`,
+      }).where(eq(posts.id, postId));
       await db.update(networkUsers).set({ karma: sql`${networkUsers.karma} + ${scoreDelta}` }).where(eq(networkUsers.userId, post.userId));
+      await updatePostHotScore(postId);
       return { vote: type };
     }
   } else {
+    // New vote
     await db.insert(votes).values({ userId, postId, type });
     const scoreDelta = type === "upvote" ? 1 : -1;
-    await db.update(posts).set({ score: sql`${posts.score} + ${scoreDelta}` }).where(eq(posts.id, postId));
+    await db.update(posts).set({
+      score: sql`${posts.score} + ${scoreDelta}`,
+      upvotes: type === "upvote" ? sql`${posts.upvotes} + 1` : posts.upvotes,
+      downvotes: type === "downvote" ? sql`${posts.downvotes} + 1` : posts.downvotes,
+    }).where(eq(posts.id, postId));
     await db.update(networkUsers).set({ karma: sql`${networkUsers.karma} + ${scoreDelta}` }).where(eq(networkUsers.userId, post.userId));
+    await updatePostHotScore(postId);
 
     if (type === "upvote" && post.userId !== userId) {
       await db.insert(notifications).values({
@@ -88,6 +124,11 @@ export async function voteOnComment(data: { commentId: number; type: "upvote" | 
     return { error: "Comentariul nu există" };
   }
 
+  // H6: Prevent self-voting
+  if (comment.userId === userId) {
+    return { error: "Nu poți vota propriul comentariu" };
+  }
+
   const [existingVote] = await db
     .select()
     .from(votes)
@@ -99,17 +140,20 @@ export async function voteOnComment(data: { commentId: number; type: "upvote" | 
       await db.delete(votes).where(eq(votes.id, existingVote.id));
       const scoreDelta = type === "upvote" ? -1 : 1;
       await db.update(comments).set({ score: sql`${comments.score} + ${scoreDelta}` }).where(eq(comments.id, commentId));
+      await db.update(networkUsers).set({ karma: sql`${networkUsers.karma} + ${scoreDelta}` }).where(eq(networkUsers.userId, comment.userId));
       return { vote: null };
     } else {
       await db.update(votes).set({ type }).where(eq(votes.id, existingVote.id));
       const scoreDelta = type === "upvote" ? 2 : -2;
       await db.update(comments).set({ score: sql`${comments.score} + ${scoreDelta}` }).where(eq(comments.id, commentId));
+      await db.update(networkUsers).set({ karma: sql`${networkUsers.karma} + ${scoreDelta}` }).where(eq(networkUsers.userId, comment.userId));
       return { vote: type };
     }
   } else {
     await db.insert(votes).values({ userId, commentId, type });
     const scoreDelta = type === "upvote" ? 1 : -1;
     await db.update(comments).set({ score: sql`${comments.score} + ${scoreDelta}` }).where(eq(comments.id, commentId));
+    await db.update(networkUsers).set({ karma: sql`${networkUsers.karma} + ${scoreDelta}` }).where(eq(networkUsers.userId, comment.userId));
     return { vote: type };
   }
 }

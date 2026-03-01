@@ -333,6 +333,81 @@ export const postViews = pgTable(
   })
 );
 
+// ==================== FOLLOWS ====================
+
+export const follows = pgTable(
+  "follows",
+  {
+    id: serial("id").primaryKey(),
+    followerId: text("follower_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    followingId: text("following_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    followerFollowingIdx: uniqueIndex("follows_follower_following_idx").on(
+      table.followerId,
+      table.followingId
+    ),
+    followingIdx: index("follows_following_idx").on(table.followingId),
+  })
+);
+
+// ==================== MESSAGES ====================
+
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const conversationParticipants = pgTable(
+  "conversation_participants",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    lastReadAt: timestamp("last_read_at"),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    convUserIdx: uniqueIndex("conv_participants_conv_user_idx").on(
+      table.conversationId,
+      table.userId
+    ),
+    userIdx: index("conv_participants_user_idx").on(table.userId),
+  })
+);
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    isDeleted: boolean("is_deleted").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    convCreatedIdx: index("messages_conv_created_idx").on(
+      table.conversationId,
+      table.createdAt
+    ),
+  })
+);
+
 // ==================== RELATIONS ====================
 
 export const networkUsersRelations = relations(networkUsers, ({ many }) => ({
@@ -344,6 +419,10 @@ export const networkUsersRelations = relations(networkUsers, ({ many }) => ({
   actedNotifications: many(notifications, { relationName: "actor" }),
   memberships: many(communityMemberships),
   reports: many(reports),
+  followers: many(follows, { relationName: "following" }),
+  following: many(follows, { relationName: "follower" }),
+  conversationParticipants: many(conversationParticipants),
+  sentMessages: many(messages),
 }));
 
 export const communitiesRelations = relations(communities, ({ many }) => ({
@@ -468,5 +547,48 @@ export const postViewsRelations = relations(postViews, ({ one }) => ({
   post: one(posts, {
     fields: [postViews.postId],
     references: [posts.id],
+  }),
+}));
+
+export const followsRelations = relations(follows, ({ one }) => ({
+  follower: one(networkUsers, {
+    fields: [follows.followerId],
+    references: [networkUsers.userId],
+    relationName: "follower",
+  }),
+  following: one(networkUsers, {
+    fields: [follows.followingId],
+    references: [networkUsers.userId],
+    relationName: "following",
+  }),
+}));
+
+export const conversationsRelations = relations(conversations, ({ many }) => ({
+  participants: many(conversationParticipants),
+  messages: many(messages),
+}));
+
+export const conversationParticipantsRelations = relations(
+  conversationParticipants,
+  ({ one }) => ({
+    conversation: one(conversations, {
+      fields: [conversationParticipants.conversationId],
+      references: [conversations.id],
+    }),
+    user: one(networkUsers, {
+      fields: [conversationParticipants.userId],
+      references: [networkUsers.userId],
+    }),
+  })
+);
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+  sender: one(networkUsers, {
+    fields: [messages.senderId],
+    references: [networkUsers.userId],
   }),
 }));

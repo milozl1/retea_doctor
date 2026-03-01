@@ -12,6 +12,8 @@ import {
   Settings,
   Bookmark,
   Sparkles,
+  MessageSquare,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,6 +162,33 @@ export function Header({ user }: HeaderProps) {
                     >
                       <Bookmark className="h-4 w-4 text-slate-500" />
                       Salvate
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/messages"
+                      className="flex items-center gap-2.5 px-3 py-2 text-slate-300 hover:text-white rounded-lg cursor-pointer"
+                    >
+                      <MessageSquare className="h-4 w-4 text-slate-500" />
+                      Mesaje
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/leaderboard"
+                      className="flex items-center gap-2.5 px-3 py-2 text-slate-300 hover:text-white rounded-lg cursor-pointer"
+                    >
+                      <Trophy className="h-4 w-4 text-slate-500" />
+                      Clasament
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/settings"
+                      className="flex items-center gap-2.5 px-3 py-2 text-slate-300 hover:text-white rounded-lg cursor-pointer"
+                    >
+                      <Settings className="h-4 w-4 text-slate-500" />
+                      Setări
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/[0.06] mx-2" />

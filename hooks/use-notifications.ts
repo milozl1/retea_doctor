@@ -10,7 +10,7 @@ export function useNotifications() {
       await fetch("/api/notifications", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ notificationId: id }),
       });
       mutate();
     } catch {
@@ -23,7 +23,7 @@ export function useNotifications() {
       await fetch("/api/notifications", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ all: true }),
+        body: JSON.stringify({ markAllRead: true }),
       });
       mutate();
     } catch {
@@ -33,7 +33,7 @@ export function useNotifications() {
 
   return {
     notifications: data?.notifications ?? [],
-    count: data?.count ?? 0,
+    count: data?.unreadCount ?? 0,
     error,
     isLoading,
     mutate,

@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import DOMPurify from "isomorphic-dompurify";
 
 // Configure marked for safe rendering
 marked.setOptions({
@@ -7,16 +8,17 @@ marked.setOptions({
 });
 
 export function renderMarkdown(content: string): string {
-  // Basic sanitization - remove script tags and event handlers
-  let sanitized = content
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
-    .replace(/on\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/javascript\s*:/gi, "");
-
-  const result = marked.parse(sanitized);
-  if (typeof result === "string") {
-    return result;
+  const raw = marked.parse(content);
+  if (typeof raw === "string") {
+    return DOMPurify.sanitize(raw, {
+      ALLOWED_TAGS: [
+        "p", "br", "strong", "em", "del", "a", "code", "pre",
+        "h1", "h2", "h3", "h4", "h5", "h6",
+        "ul", "ol", "li", "blockquote", "hr", "img", "table",
+        "thead", "tbody", "tr", "th", "td", "sup", "sub",
+      ],
+      ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "target", "rel"],
+    });
   }
   return "";
 }

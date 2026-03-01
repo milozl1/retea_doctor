@@ -12,20 +12,26 @@ import {
   formatDate,
   formatNumber,
   EXPERIENCE_LABELS,
+  cn,
 } from "@/lib/utils";
 import {
   MessageSquare,
   Eye,
   Clock,
   Bookmark,
+  BookmarkCheck,
   Share2,
   Flag,
   ExternalLink,
   Lock,
   Pin,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useModal } from "@/stores/modal-store";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface PostDetailProps {
   post: {
@@ -58,6 +64,8 @@ interface PostDetailProps {
     color: string;
   };
   userVote?: "upvote" | "downvote" | null;
+  isBookmarked?: boolean;
+  isOwner?: boolean;
 }
 
 export function PostDetail({
@@ -65,8 +73,11 @@ export function PostDetail({
   author,
   community,
   userVote = null,
+  isBookmarked = false,
+  isOwner = false,
 }: PostDetailProps) {
   const { onOpen } = useModal();
+  const [bookmarked, setBookmarked] = useState(isBookmarked);
 
   return (
     <article className="glass-card p-6 space-y-4">
@@ -178,7 +189,12 @@ export function PostDetail({
           <Button
             variant="ghost"
             size="sm"
-            className="text-slate-500 hover:text-white gap-2"
+            className={cn(
+              "gap-2",
+              bookmarked
+                ? "text-primary hover:text-primary/80"
+                : "text-slate-500 hover:text-white"
+            )}
             onClick={async () => {
               try {
                 const res = await fetch("/api/bookmarks", {
@@ -186,14 +202,22 @@ export function PostDetail({
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ postId: post.id }),
                 });
-                if (res.ok) toast.success("Postare salvată");
+                if (res.ok) {
+                  const data = await res.json();
+                  setBookmarked(data.bookmarked);
+                  toast.success(data.bookmarked ? "Postare salvată" : "Postare eliminată din salvate");
+                }
               } catch {
                 toast.error("Eroare la salvare");
               }
             }}
           >
-            <Bookmark className="h-4 w-4" />
-            Salvează
+            {bookmarked ? (
+              <BookmarkCheck className="h-4 w-4" />
+            ) : (
+              <Bookmark className="h-4 w-4" />
+            )}
+            {bookmarked ? "Salvată" : "Salvează"}
           </Button>
 
           <Button
@@ -218,6 +242,30 @@ export function PostDetail({
             <Flag className="h-4 w-4" />
             Raportează
           </Button>
+
+          {isOwner && (
+            <>
+              <Link href={`/post/${post.id}/edit`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-slate-500 hover:text-white gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editează
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-500 hover:text-emergency-500 gap-2"
+                onClick={() => onOpen("deleteConfirm", { postId: post.id })}
+              >
+                <Trash2 className="h-4 w-4" />
+                Șterge
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </article>

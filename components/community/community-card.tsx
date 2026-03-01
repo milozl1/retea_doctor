@@ -9,6 +9,7 @@ interface CommunityCardProps {
   iconEmoji?: string;
   memberCount: number;
   postCount: number;
+  isMember?: boolean;
 }
 
 export function CommunityCard({
@@ -19,6 +20,7 @@ export function CommunityCard({
   iconEmoji,
   memberCount,
   postCount,
+  isMember,
 }: CommunityCardProps) {
   return (
     <Link href={`/c/${slug}`} className="block">
@@ -30,8 +32,15 @@ export function CommunityCard({
           >
             {iconEmoji || "📁"}
           </div>
-          <div>
-            <h3 className="font-semibold text-white">c/{name}</h3>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-white">c/{name}</h3>
+              {isMember && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/20">
+                  Membru
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 flex items-center gap-1">
               <Users className="h-3 w-3" />
               {memberCount} membri • {postCount} postări

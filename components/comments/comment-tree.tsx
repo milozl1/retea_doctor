@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { CommentItem } from "./comment-item";
 import { CommentForm } from "./comment-form";
 import { MessageSquare } from "lucide-react";
@@ -33,6 +34,7 @@ interface CommentTreeProps {
   comments: CommentData[];
   postId: number;
   postAuthorId: string;
+  currentUserId?: string | null;
   isLocked?: boolean;
 }
 
@@ -64,48 +66,50 @@ export function CommentTree({
   comments,
   postId,
   postAuthorId,
+  currentUserId,
   isLocked = false,
 }: CommentTreeProps) {
-  const [refreshKey, setRefreshKey] = useState(0);
+  const router = useRouter();
 
   const tree = useMemo(() => buildTree(comments), [comments]);
+
+  const handleRefresh = () => {
+    router.refresh();
+  };
 
   return (
     <div className="space-y-4">
       {/* Comment form */}
       {!isLocked && (
-        <div className="glass-card p-4">
-          <h3 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Adaugă un comentariu
-          </h3>
+        <div className="mb-4">
           <CommentForm
             postId={postId}
-            onSuccess={() => setRefreshKey((k) => k + 1)}
+            onSuccess={handleRefresh}
           />
         </div>
       )}
 
       {isLocked && (
-        <div className="glass-card p-4 text-center text-sm text-slate-500">
+        <div className="text-center text-sm text-slate-500 py-3">
           🔒 Comentariile sunt blocate pentru această postare
         </div>
       )}
 
       {/* Comments */}
       {tree.length > 0 ? (
-        <div className="glass-card p-4 divide-y divide-white/5">
+        <div className="divide-y divide-white/5">
           {tree.map((comment) => (
             <CommentItem
               key={comment.comment.id}
               data={comment}
               postAuthorId={postAuthorId}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              currentUserId={currentUserId}
+              onRefresh={handleRefresh}
             />
           ))}
         </div>
       ) : (
-        <div className="glass-card p-8 text-center space-y-2">
+        <div className="text-center py-8 space-y-2">
           <MessageSquare className="h-8 w-8 text-slate-600 mx-auto" />
           <p className="text-sm text-slate-500">
             Niciun comentariu încă. Fii primul!

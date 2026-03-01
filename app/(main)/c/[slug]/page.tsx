@@ -7,8 +7,9 @@ import { communityMemberships } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { PostListServer } from "@/components/feed/post-list-server";
 import { FeedSortTabs } from "@/components/feed/feed-sort-tabs";
+import { JoinCommunityButton } from "@/components/community/join-button";
 import { Button } from "@/components/ui/button";
-import { Users, Plus } from "lucide-react";
+import { Users, Plus, ScrollText } from "lucide-react";
 import Link from "next/link";
 
 export default async function CommunityPage({
@@ -67,6 +68,7 @@ export default async function CommunityPage({
 
           {userId && (
             <div className="flex gap-2">
+              <JoinCommunityButton communityId={community.id} isMember={isMember} />
               <Link href={`/post/new?community=${community.slug}`}>
                 <Button size="sm" variant="outline" className="glass-sm">
                   <Plus className="h-4 w-4 mr-1" />
@@ -83,6 +85,19 @@ export default async function CommunityPage({
           </p>
         )}
       </div>
+
+      {/* Rules */}
+      {community.rules && (
+        <div className="glass-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ScrollText className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-medium text-white">Regulile comunității</h3>
+          </div>
+          <p className="text-sm text-slate-400 whitespace-pre-line leading-relaxed">
+            {community.rules}
+          </p>
+        </div>
+      )}
 
       {/* Sort Tabs */}
       <FeedSortTabs />

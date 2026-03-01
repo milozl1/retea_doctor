@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { postId, commentId, reason, description } = body;
+  const { postId, commentId, reason, details } = body;
 
   if (!reason) {
     return NextResponse.json(
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     postId: postId || null,
     commentId: commentId || null,
     reason,
-    details: description || null,
+    details: details || null,
   });
 
   return NextResponse.json({ success: true });

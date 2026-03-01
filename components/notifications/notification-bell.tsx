@@ -10,14 +10,13 @@ interface NotificationBellProps {
 }
 
 export function NotificationBell({ userId }: NotificationBellProps) {
-  const { data } = useSWR<{ count: number }>(
-    `/api/notifications?count=true`,
-    {
-      refreshInterval: 30000, // Poll every 30 seconds
-    }
+  const { data } = useSWR<{ unreadCount: number }>(
+    userId ? `/api/notifications?count=true` : null,
+    (url: string) => fetch(url).then(r => r.json()),
+    { refreshInterval: 60000 }
   );
 
-  const count = data?.count ?? 0;
+  const count = data?.unreadCount ?? 0;
 
   return (
     <Link href="/notifications" className="relative">

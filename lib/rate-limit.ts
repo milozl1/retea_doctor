@@ -49,17 +49,6 @@ export function rateLimit(
   };
 }
 
-// Cleanup old entries periodically
-if (typeof setInterval !== "undefined") {
-  setInterval(
-    () => {
-      const now = Date.now();
-      rateLimitMap.forEach((value, key) => {
-        if (now - value.lastReset > 3_600_000) {
-          rateLimitMap.delete(key);
-        }
-      });
-    },
-    5 * 60_000
-  );
-}
+// Note: In-memory rate limiting only works in Node.js long-running process mode.
+// For serverless (Vercel), each invocation gets a fresh Map.
+// For production serverless, replace with Redis-based rate limiting.

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, Plus, Bell, User } from "lucide-react";
+import { Home, Search, Plus, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
@@ -16,7 +16,7 @@ export function MobileNav({ userId }: MobileNavProps) {
     { href: "/", label: "Feed", icon: Home },
     { href: "/search", label: "Caută", icon: Search },
     { href: "/post/new", label: "", icon: Plus, highlight: true },
-    { href: "/notifications", label: "Notificări", icon: Bell },
+    { href: "/messages", label: "Mesaje", icon: MessageSquare },
     {
       href: userId ? `/u/${userId}` : "/auth/login",
       label: "Profil",

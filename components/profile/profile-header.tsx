@@ -7,6 +7,7 @@ import {
   MessageSquare,
   FileText,
   Star,
+  Users,
 } from "lucide-react";
 
 interface ProfileHeaderProps {
@@ -23,9 +24,11 @@ interface ProfileHeaderProps {
     postCount: number;
     commentCount: number;
   };
+  followersCount?: number;
+  followingCount?: number;
 }
 
-export function ProfileHeader({ user }: ProfileHeaderProps) {
+export function ProfileHeader({ user, followersCount = 0, followingCount = 0 }: ProfileHeaderProps) {
   return (
     <div className="glass-card p-6 space-y-4">
       <div className="flex items-start gap-4">
@@ -68,7 +71,7 @@ export function ProfileHeader({ user }: ProfileHeaderProps) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         <div className="glass-card p-3 text-center">
           <Star className="h-4 w-4 text-warning mx-auto mb-1" />
           <p className="text-lg font-bold text-white">
@@ -85,6 +88,16 @@ export function ProfileHeader({ user }: ProfileHeaderProps) {
           <MessageSquare className="h-4 w-4 text-clinical mx-auto mb-1" />
           <p className="text-lg font-bold text-white">{user.commentCount}</p>
           <p className="text-[10px] text-slate-500">Comentarii</p>
+        </div>
+        <div className="glass-card p-3 text-center">
+          <Users className="h-4 w-4 text-indigo-400 mx-auto mb-1" />
+          <p className="text-lg font-bold text-white">{formatNumber(followersCount)}</p>
+          <p className="text-[10px] text-slate-500">Urmăritori</p>
+        </div>
+        <div className="glass-card p-3 text-center">
+          <Users className="h-4 w-4 text-cyan-400 mx-auto mb-1" />
+          <p className="text-lg font-bold text-white">{formatNumber(followingCount)}</p>
+          <p className="text-[10px] text-slate-500">Urmăresc</p>
         </div>
         <div className="glass-card p-3 text-center">
           <Calendar className="h-4 w-4 text-slate-400 mx-auto mb-1" />

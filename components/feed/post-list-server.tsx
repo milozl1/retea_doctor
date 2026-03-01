@@ -58,6 +58,7 @@ export async function PostListServer({
       initialPosts={initialPosts}
       sort={sort}
       communitySlug={communitySlug}
+      showCommunity={!communityId}
     />
   );
 }

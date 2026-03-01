@@ -11,6 +11,8 @@ import {
   ChevronUp,
   Plus,
   Compass,
+  Trophy,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,8 @@ const NAV_ITEMS = [
   { href: "/", label: "Feed", icon: Home, description: "Toate postările" },
   { href: "/?sort=hot", label: "Populare", icon: Flame, description: "Trending acum" },
   { href: "/c", label: "Comunități", icon: Compass, description: "Explorează" },
+  { href: "/leaderboard", label: "Clasament", icon: Trophy, description: "Top contribuitori" },
+  { href: "/messages", label: "Mesaje", icon: MessageSquare, description: "Conversații" },
 ];
 
 interface CommunityItem {

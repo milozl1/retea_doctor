@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import { getPostById, getCommentsForPost, getUserVoteOnPost, isPostBookmarked } from "@/db/queries";
 import { auth } from "@/lib/auth";
 import { PostDetail } from "@/components/post/post-detail";
-import { CommentForm } from "@/components/comments/comment-form";
 import { CommentTree } from "@/components/comments/comment-tree";
+import { db } from "@/db/drizzle";
+import { posts } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 
 export default async function PostPage({
   params,
@@ -28,6 +30,13 @@ export default async function PostPage({
     userId ? isPostBookmarked(userId, postId) : false,
   ]);
 
+  // Increment view count (fire-and-forget)
+  db.update(posts)
+    .set({ viewCount: sql`${posts.viewCount} + 1` })
+    .where(eq(posts.id, postId))
+    .execute()
+    .catch(() => {});
+
   return (
     <div className="space-y-4">
       <PostDetail
@@ -35,45 +44,24 @@ export default async function PostPage({
         author={result.author}
         community={result.community}
         userVote={userVote?.type ?? null}
+        isBookmarked={bookmarked}
+        isOwner={userId === result.post.userId}
       />
 
-      {/* Comment Form */}
-      {userId && !result.post.isLocked && (
-        <div className="glass p-4">
-          <h3 className="text-sm font-medium text-gray-300 mb-3">
-            Adaugă un comentariu
-          </h3>
-          <CommentForm postId={postId} />
-        </div>
-      )}
-
-      {result.post.isLocked && (
-        <div className="glass p-4 text-center">
-          <p className="text-gray-400 text-sm">
-            🔒 Postarea este blocată. Nu se mai pot adăuga comentarii.
-          </p>
-        </div>
-      )}
-
-      {/* Comments */}
+      {/* Comments section (includes form + tree) */}
       <div className="glass p-4">
         <h3 className="text-sm font-medium text-gray-300 mb-4">
           {result.post.commentCount}{" "}
           {result.post.commentCount === 1 ? "comentariu" : "comentarii"}
         </h3>
 
-        {commentsData.length > 0 ? (
-          <CommentTree
-            comments={commentsData}
-            postId={postId}
-            postAuthorId={result.post.userId}
-            isLocked={result.post.isLocked}
-          />
-        ) : (
-          <p className="text-gray-500 text-sm text-center py-8">
-            Niciun comentariu încă. Fii primul care comentează!
-          </p>
-        )}
+        <CommentTree
+          comments={commentsData}
+          postId={postId}
+          postAuthorId={result.post.userId}
+          currentUserId={userId}
+          isLocked={result.post.isLocked}
+        />
       </div>
     </div>
   );

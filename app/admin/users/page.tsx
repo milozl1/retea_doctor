@@ -1,26 +1,13 @@
-import { requireAuth } from "@/lib/auth";
 import { db } from "@/db/drizzle";
 import { networkUsers } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
-import { redirect } from "next/navigation";
+import { desc } from "drizzle-orm";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/utils";
 import { Shield, Star, User } from "lucide-react";
+import { RoleSelector } from "@/components/admin/role-selector";
 
 export default async function AdminUsersPage() {
-  const { userId } = await requireAuth();
-
-  const [user] = await db
-    .select()
-    .from(networkUsers)
-    .where(eq(networkUsers.userId, userId))
-    .limit(1);
-
-  if (!user || user.role !== "admin") {
-    redirect("/");
-  }
-
   const allUsers = await db
     .select()
     .from(networkUsers)
@@ -40,18 +27,11 @@ export default async function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-white">
-            👥 Utilizatori
-          </h1>
-          <Link href="/admin" className="text-blue-400 hover:underline text-sm">
-            ← Panou admin
-          </Link>
-        </div>
+    <div className="p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <h1 className="text-xl font-bold text-white">Utilizatori</h1>
 
-        <div className="glass overflow-hidden">
+        <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -102,10 +82,11 @@ export default async function AdminUsersPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={roleColors[u.role as keyof typeof roleColors]}>
-                          <RoleIcon className="h-3 w-3 mr-1" />
-                          {u.role}
-                        </Badge>
+                        <RoleSelector
+                          userId={u.userId}
+                          currentRole={u.role}
+                          roleColors={roleColors}
+                        />
                       </td>
                       <td className="px-4 py-3 text-right text-sm text-white">
                         {u.karma}

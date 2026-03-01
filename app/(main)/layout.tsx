@@ -1,14 +1,18 @@
 import { HeaderServer } from "@/components/layout/header-server";
 import { SidebarServer } from "@/components/layout/sidebar-server";
-import { RightSidebar } from "@/components/layout/right-sidebar";
+import { RightSidebarServer } from "@/components/layout/right-sidebar-server";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ReportModal } from "@/components/modals/report-modal";
+import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
+import { auth } from "@/lib/auth";
 
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { userId } = await auth();
+
   return (
     <div className="min-h-screen bg-[#040711]">
       {/* Ambient background effects */}
@@ -33,15 +37,16 @@ export default function MainLayout({
 
         {/* Right Sidebar */}
         <aside className="hidden xl:block fixed right-0 top-16 w-[320px] h-[calc(100vh-4rem)] overflow-y-auto scrollbar-thin border-l border-white/[0.04] bg-[#060a14]/40 backdrop-blur-sm p-4">
-          <RightSidebar />
+          <RightSidebarServer />
         </aside>
       </div>
 
       {/* Mobile Navigation */}
-      <MobileNav />
+      <MobileNav userId={userId} />
 
       {/* Global Modals */}
       <ReportModal />
+      <DeleteConfirmModal />
     </div>
   );
 }

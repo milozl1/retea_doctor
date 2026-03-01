@@ -12,6 +12,14 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
+  const countOnly = searchParams.get("count") === "true";
+
+  // If only count is requested, skip fetching full notifications
+  if (countOnly) {
+    const unreadCount = await getUnreadNotificationCount(userId);
+    return NextResponse.json({ unreadCount });
+  }
+
   const limit = parseInt(searchParams.get("limit") || "20");
 
   const [items, unreadCount] = await Promise.all([

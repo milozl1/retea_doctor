@@ -1,30 +1,17 @@
-import { requireAuth } from "@/lib/auth";
 import { db } from "@/db/drizzle";
-import { networkUsers, reports, posts } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
-import { redirect } from "next/navigation";
+import { networkUsers, reports } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle } from "lucide-react";
 import { timeAgo } from "@/lib/utils";
+import { ReportActions } from "@/components/admin/report-actions";
 
 export default async function AdminReportsPage({
   searchParams,
 }: {
   searchParams: { status?: string };
 }) {
-  const { userId } = await requireAuth();
-
-  const [user] = await db
-    .select()
-    .from(networkUsers)
-    .where(eq(networkUsers.userId, userId))
-    .limit(1);
-
-  if (!user || user.role !== "admin") {
-    redirect("/");
-  }
-
   const status = searchParams.status || "pending";
 
   const allReports = await db
@@ -49,19 +36,12 @@ export default async function AdminReportsPage({
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-white">
-            ⚠️ Rapoarte
-          </h1>
-          <Link href="/admin" className="text-blue-400 hover:underline text-sm">
-            ← Panou admin
-          </Link>
-        </div>
+    <div className="p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <h1 className="text-xl font-bold text-white">Rapoarte</h1>
 
         {/* Status tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2">
           {["pending", "reviewed", "resolved", "dismissed"].map((s) => (
             <Link
               key={s}
@@ -86,9 +66,9 @@ export default async function AdminReportsPage({
         {allReports.length > 0 ? (
           <div className="space-y-3">
             {allReports.map(({ report, reporter }) => (
-              <div key={report.id} className="glass p-4">
-                <div className="flex items-start justify-between">
-                  <div>
+              <div key={report.id} className="glass-card p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <AlertTriangle className="h-4 w-4 text-yellow-400" />
                       <span className="text-sm font-medium text-white">
@@ -101,11 +81,11 @@ export default async function AdminReportsPage({
                       </Badge>
                     </div>
                     {report.details && (
-                      <p className="text-sm text-gray-400 mt-1">
+                      <p className="text-sm text-slate-400 mt-1">
                         {report.details}
                       </p>
                     )}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
                       <span>
                         Raportat de {reporter.userName}
                       </span>
@@ -123,14 +103,17 @@ export default async function AdminReportsPage({
                       )}
                     </div>
                   </div>
+                  {report.status === "pending" && (
+                    <ReportActions reportId={report.id} />
+                  )}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="glass p-12 text-center">
+          <div className="glass-card p-12 text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-            <p className="text-gray-400">
+            <p className="text-slate-400">
               Niciun raport {status === "pending" ? "pendinte" : ""}.
             </p>
           </div>

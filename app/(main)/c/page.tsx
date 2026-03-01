@@ -42,6 +42,7 @@ export default async function CommunitiesPage() {
             iconEmoji={community.iconSrc || undefined}
             memberCount={community.memberCount}
             postCount={community.postCount}
+            isMember={userMemberIds.includes(community.id)}
           />
         ))}
       </div>
