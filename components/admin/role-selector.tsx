@@ -45,8 +45,9 @@ export function RoleSelector({ userId, currentRole, roleColors }: RoleSelectorPr
       }
       toast.success(`Rol schimbat în ${newRole}`);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message || "Eroare la schimbarea rolului");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Eroare la schimbarea rolului";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

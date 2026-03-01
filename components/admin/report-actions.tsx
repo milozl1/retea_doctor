@@ -28,8 +28,9 @@ export function ReportActions({ reportId }: ReportActionsProps) {
       }
       toast.success(action === "resolved" ? "Raport rezolvat" : "Raport respins");
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message || "Eroare la actualizare");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Eroare la actualizare";
+      toast.error(msg);
     } finally {
       setLoading(null);
     }

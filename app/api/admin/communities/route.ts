@@ -100,7 +100,7 @@ export async function PATCH(req: NextRequest) {
   const { communityId, ...updateData } = body;
 
   if (!communityId || typeof communityId !== "number") {
-    return NextResponse.json({ error: "communityId requis" }, { status: 400 });
+    return NextResponse.json({ error: "communityId este obligatoriu" }, { status: 400 });
   }
 
   const parsed = updateCommunitySchema.safeParse(updateData);
