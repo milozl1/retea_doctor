@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/drizzle";
-import { networkUsers } from "@/db/schema";
+import { networkUsers, posts, comments, follows, conversationParticipants, bookmarks, votes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -63,4 +63,36 @@ export async function PATCH(request: NextRequest) {
     .returning();
 
   return NextResponse.json({ user: updated });
+}
+
+// DELETE — soft-delete account (anonymize user data)
+export async function DELETE() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
+  }
+
+  // Anonymize user data (soft delete - preserves posts/comments structure)
+  await db
+    .update(networkUsers)
+    .set({
+      userName: "Utilizator șters",
+      bio: null,
+      specialization: null,
+      userImageSrc: "",
+      experienceLevel: "student",
+    })
+    .where(eq(networkUsers.userId, userId));
+
+  // Remove follows
+  await db.delete(follows).where(eq(follows.followerId, userId));
+  await db.delete(follows).where(eq(follows.followingId, userId));
+
+  // Remove bookmarks
+  await db.delete(bookmarks).where(eq(bookmarks.userId, userId));
+
+  // Remove conversation participations
+  await db.delete(conversationParticipants).where(eq(conversationParticipants.userId, userId));
+
+  return NextResponse.json({ success: true });
 }

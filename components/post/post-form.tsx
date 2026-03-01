@@ -37,7 +37,6 @@ export function PostForm({ communities, defaultCommunityId }: PostFormProps) {
   const [communityId, setCommunityId] = useState<string>(
     defaultCommunityId ? String(defaultCommunityId) : ""
   );
-  const [linkUrl, setLinkUrl] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
 
@@ -70,7 +69,6 @@ export function PostForm({ communities, defaultCommunityId }: PostFormProps) {
           content: content.trim(),
           type,
           communityId: parseInt(communityId),
-          linkUrl: linkUrl.trim() || undefined,
           tags,
         }),
       });
@@ -168,22 +166,6 @@ export function PostForm({ communities, defaultCommunityId }: PostFormProps) {
           maxLength={40000}
         />
       </div>
-
-      {/* Link URL */}
-      {type === "external_link" && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-300">
-            URL Link extern
-          </label>
-          <Input
-            type="url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="https://..."
-            className="bg-white/5 border-white/10 text-white"
-          />
-        </div>
-      )}
 
       {/* Tags */}
       <div className="space-y-2">

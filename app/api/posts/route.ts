@@ -101,9 +101,7 @@ export async function POST(request: NextRequest) {
         title: data.title,
         content: data.content,
         type: data.type,
-        linkUrl: data.linkUrl || null,
         tags: data.tags,
-        caseStudyId: data.caseStudyId || null,
         hotScore: hotScoreVal,
       })
       .returning();

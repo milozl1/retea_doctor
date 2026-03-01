@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Save, User } from "lucide-react";
+import { Loader2, Save, User, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { EXPERIENCE_LABELS } from "@/lib/utils";
 
@@ -54,6 +54,9 @@ const SPECIALIZATIONS = [
 export function SettingsForm({ initialData }: SettingsFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [userName, setUserName] = useState(initialData.userName);
   const [bio, setBio] = useState(initialData.bio);
   const [specialization, setSpecialization] = useState(initialData.specialization);
@@ -190,6 +193,81 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
           )}
           Salvează
         </Button>
+      </div>
+
+      {/* Danger Zone - Delete Account */}
+      <div className="pt-6 mt-6 border-t border-red-500/20">
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="h-4 w-4 text-red-400" />
+          <h3 className="text-sm font-semibold text-red-400">Zonă periculoasă</h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-4">
+          Ștergerea contului este permanentă. Datele tale personale vor fi anonimizate, dar postările
+          și comentariile tale vor rămâne vizibile sub &quot;Utilizator șters&quot;.
+        </p>
+
+        {!showDeleteConfirm ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Șterge contul
+          </Button>
+        ) : (
+          <div className="glass-sm p-4 rounded-xl border border-red-500/20 space-y-3">
+            <p className="text-sm text-red-300 font-medium">
+              Ești sigur? Scrie &quot;STERGE&quot; pentru confirmare:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder='Scrie "STERGE"'
+              className="bg-red-500/5 border-red-500/20 text-white placeholder:text-slate-600"
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteConfirmText("");
+                }}
+                className="text-slate-400"
+              >
+                Anulează
+              </Button>
+              <Button
+                type="button"
+                disabled={deleteConfirmText !== "STERGE" || isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    const res = await fetch("/api/user/profile", { method: "DELETE" });
+                    if (!res.ok) throw new Error("Eroare la ștergere");
+                    toast.success("Contul a fost șters. Vei fi deconectat.");
+                    // Sign out
+                    await fetch("/api/auth/signout", { method: "POST" });
+                    window.location.href = "/";
+                  } catch {
+                    toast.error("Eroare la ștergerea contului");
+                    setIsDeleting(false);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white gap-2"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Confirmă ștergerea
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </form>
   );

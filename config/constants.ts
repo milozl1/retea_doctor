@@ -25,7 +25,6 @@ export const POST_TYPE_OPTIONS = [
   { value: "case_study", label: "Caz Clinic", icon: "🏥", description: "Prezentare caz clinic" },
   { value: "article", label: "Articol", icon: "📝", description: "Sharing de cunoștințe" },
   { value: "quick_question", label: "Întrebare Rapidă", icon: "❓", description: "Q&A scurt" },
-  { value: "external_link", label: "Link Extern", icon: "🔗", description: "Articol sau studiu extern" },
 ] as const;
 
 export const REPORT_REASONS = [

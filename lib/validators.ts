@@ -14,15 +14,12 @@ export const createPostSchema = z.object({
     "discussion",
     "article",
     "quick_question",
-    "external_link",
   ]),
   communityId: z.number().int().positive("Selectează o comunitate"),
-  linkUrl: z.string().url("URL invalid").optional().or(z.literal("")),
   tags: z
     .array(z.string().max(50))
     .max(5, "Maximum 5 tag-uri")
     .default([]),
-  caseStudyId: z.number().int().positive().optional(),
 });
 
 export const updatePostSchema = z.object({
@@ -83,7 +80,6 @@ export const searchSchema = z.object({
       "discussion",
       "article",
       "quick_question",
-      "external_link",
     ])
     .optional(),
 });

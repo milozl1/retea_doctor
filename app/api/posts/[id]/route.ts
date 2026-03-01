@@ -93,6 +93,13 @@ export async function PATCH(
   if (parsed.data.content !== undefined) updates.content = parsed.data.content;
   if (parsed.data.tags !== undefined) updates.tags = parsed.data.tags;
 
+  // Admin-only fields: isPinned, isLocked, isDeleted
+  if (user?.role === "admin") {
+    if (typeof body.isPinned === "boolean") updates.isPinned = body.isPinned;
+    if (typeof body.isLocked === "boolean") updates.isLocked = body.isLocked;
+    if (typeof body.isDeleted === "boolean") updates.isDeleted = body.isDeleted;
+  }
+
   const [updated] = await db
     .update(posts)
     .set(updates)

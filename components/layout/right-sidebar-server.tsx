@@ -158,12 +158,17 @@ function RightSidebarContent({
       </div>
 
       {/* Footer */}
-      <div className="px-3 pt-2 space-y-1">
+      <div className="px-3 pt-2 space-y-2">
+        <div className="flex flex-wrap gap-x-2 gap-y-1">
+          <Link href="/about" className="text-[11px] text-slate-700 hover:text-slate-500 transition-colors">Despre</Link>
+          <Link href="/terms" className="text-[11px] text-slate-700 hover:text-slate-500 transition-colors">Termeni</Link>
+          <Link href="/privacy" className="text-[11px] text-slate-700 hover:text-slate-500 transition-colors">Confidențialitate</Link>
+          <Link href="/cookies" className="text-[11px] text-slate-700 hover:text-slate-500 transition-colors">Cookies</Link>
+          <Link href="/contact" className="text-[11px] text-slate-700 hover:text-slate-500 transition-colors">Contact</Link>
+          <Link href="/faq" className="text-[11px] text-slate-700 hover:text-slate-500 transition-colors">FAQ</Link>
+        </div>
         <p className="text-[11px] text-slate-700">
-          © 2026 Rețea Medicală
-        </p>
-        <p className="text-[11px] text-slate-700">
-          Parte din ecosistemul{" "}
+          © 2026 Rețea Medicală · Parte din ecosistemul{" "}
           <span className="text-primary/50">MedLearn</span>
         </p>
       </div>

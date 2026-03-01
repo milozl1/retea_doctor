@@ -11,11 +11,13 @@ import {
   AlertTriangle,
   ArrowLeft,
   Shield,
+  Newspaper,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: BarChart3 },
   { href: "/admin/reports", label: "Rapoarte", icon: AlertTriangle },
+  { href: "/admin/posts", label: "Postări", icon: Newspaper },
   { href: "/admin/users", label: "Utilizatori", icon: Users },
   { href: "/admin/communities", label: "Comunități", icon: FileText },
 ];

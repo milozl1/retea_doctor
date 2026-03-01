@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SWRProvider } from "@/components/providers/swr-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { CookieConsent } from "@/components/layout/cookie-consent";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,6 +31,7 @@ export default function RootLayout({
           <SWRProvider>
             {children}
             <Toaster />
+            <CookieConsent />
           </SWRProvider>
         </ThemeProvider>
       </body>

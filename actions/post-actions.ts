@@ -35,9 +35,7 @@ export async function createPost(formData: unknown) {
       title: data.title,
       content: data.content,
       type: data.type,
-      linkUrl: data.linkUrl || null,
       tags: data.tags,
-      caseStudyId: data.caseStudyId || null,
       hotScore: Math.round(score * 10000000),
     })
     .returning();
