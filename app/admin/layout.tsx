@@ -44,6 +44,9 @@ export default async function AdminLayout({
             <Link href="/admin/dashboard/users" className="text-slate-400 hover:text-white text-sm">
               Utilizatori
             </Link>
+            <Link href="/admin/dashboard/communities" className="text-slate-400 hover:text-white text-sm">
+              Comunități
+            </Link>
           </div>
         </div>
       </div>

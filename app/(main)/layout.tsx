@@ -1,7 +1,9 @@
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { RightSidebar } from "@/components/layout/right-sidebar";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { ReportModal } from "@/components/modals/report-modal";
+import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 
 export default function MainLayout({
   children,
@@ -11,7 +13,7 @@ export default function MainLayout({
   return (
     <div className="min-h-screen bg-slate-900">
       <Header />
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6 pb-20 lg:pb-6">
         <div className="flex gap-6">
           {/* Left Sidebar */}
           <div className="hidden lg:block">
@@ -29,7 +31,11 @@ export default function MainLayout({
           </div>
         </div>
       </div>
+      {/* Mobile navigation */}
+      <MobileNav />
+      {/* Modals */}
       <ReportModal />
+      <DeleteConfirmModal />
     </div>
   );
 }
