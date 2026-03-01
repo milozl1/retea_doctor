@@ -24,8 +24,13 @@ interface Community {
 export function PostForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const defaultCommunityId = searchParams.get("communityId")
     ? parseInt(searchParams.get("communityId")!)
+    : null;
+  // Support ?caseStudyId=N to pre-populate from a MedLearn case study
+  const caseStudyIdParam = searchParams.get("caseStudyId")
+    ? parseInt(searchParams.get("caseStudyId")!)
     : null;
 
   const [title, setTitle] = useState("");
@@ -36,13 +41,41 @@ export function PostForm() {
   const [tags, setTags] = useState("");
   const [communities, setCommunities] = useState<Community[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingCase, setIsFetchingCase] = useState(false);
 
+  // Load communities list
   useEffect(() => {
     fetch("/api/communities")
       .then((r) => r.json())
       .then((data) => setCommunities(data.communities ?? []))
       .catch(console.error);
   }, []);
+
+  // Pre-populate from MedLearn case study when ?caseStudyId= is present
+  useEffect(() => {
+    if (!caseStudyIdParam) return;
+    setIsFetchingCase(true);
+    setType("case_study");
+    fetch(`/api/medlearn/case-study/${caseStudyIdParam}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.caseStudy) {
+          const cs = data.caseStudy;
+          setTitle(cs.title ?? "");
+          // Build rich markdown content from case study fields
+          const parts: string[] = [];
+          if (cs.description) parts.push(`## Descriere\n\n${cs.description}`);
+          if (cs.patientHistory) parts.push(`## Istoric pacient\n\n${cs.patientHistory}`);
+          if (cs.presentation) parts.push(`## Prezentare clinică\n\n${cs.presentation}`);
+          if (cs.category) setTags(cs.category);
+          setContent(parts.join("\n\n"));
+          toast.success("Caz clinic importat din MedLearn!");
+        }
+      })
+      .catch(() => toast.error("Nu s-a putut importa cazul din MedLearn"))
+      .finally(() => setIsFetchingCase(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseStudyIdParam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +98,7 @@ export function PostForm() {
           communityId,
           linkUrl: linkUrl.trim() || null,
           tags: tagArray,
+          caseStudyId: caseStudyIdParam ?? undefined,
         }),
       });
 
@@ -87,6 +121,16 @@ export function PostForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* MedLearn import banner */}
+      {caseStudyIdParam && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2 text-sm text-blue-300 flex items-center gap-2">
+          <span>📚</span>
+          {isFetchingCase
+            ? "Se importă cazul din MedLearn..."
+            : "Caz importat din MedLearn — editează înainte de a publica."}
+        </div>
+      )}
+
       {/* Type selector */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {POST_TYPES.map(({ value, label }) => (

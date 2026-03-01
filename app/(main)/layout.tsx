@@ -4,12 +4,51 @@ import { RightSidebar } from "@/components/layout/right-sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ReportModal } from "@/components/modals/report-modal";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
+import { authWithUser } from "@/lib/auth";
+import { db } from "@/db/drizzle";
+import { networkUsers } from "@/db/schema";
 
-export default function MainLayout({
+/**
+ * Ensure the current Supabase Auth user exists in network_users.
+ * Uses INSERT … ON CONFLICT DO UPDATE so it is a single query:
+ *   - First visit  → inserts a new row (creates the network profile)
+ *   - Return visit → updates name/avatar/lastSeen (keeps in sync with Doctor)
+ *
+ * This is the glue that makes one Supabase account work across both apps.
+ */
+async function ensureUserSynced() {
+  try {
+    const { userId, user } = await authWithUser();
+    if (!userId || !user) return;
+
+    await db
+      .insert(networkUsers)
+      .values({
+        userId,
+        userName: user.firstName,
+        userImageSrc: user.imageUrl,
+        experienceLevel: "student",
+      })
+      .onConflictDoUpdate({
+        target: networkUsers.userId,
+        set: {
+          userName: user.firstName,
+          userImageSrc: user.imageUrl,
+          lastSeenAt: new Date(),
+        },
+      });
+  } catch {
+    // Non-fatal: the page still renders even if the sync fails
+  }
+}
+
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await ensureUserSynced();
+
   return (
     <div className="min-h-screen bg-slate-900">
       <Header />
@@ -39,3 +78,4 @@ export default function MainLayout({
     </div>
   );
 }
+

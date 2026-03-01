@@ -6,6 +6,7 @@ import { currentUser } from "@/lib/auth";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { ProfileStats } from "@/components/profile/profile-stats";
 import { ProfileTabs } from "@/components/profile/profile-tabs";
+import { MedlearnStats } from "@/components/profile/medlearn-stats";
 
 interface PageProps {
   params: Promise<{ userId: string }>;
@@ -80,7 +81,10 @@ export default async function UserProfilePage({ params }: PageProps) {
           commentCount={user.commentCount}
           experienceLevel={user.experienceLevel}
         />
+        {/* MedLearn cross-app stats (shown only when MEDLEARN_DATABASE_URL is set) */}
+        <MedlearnStats userId={user.userId} />
       </div>
     </div>
   );
 }
+

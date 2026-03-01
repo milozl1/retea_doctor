@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { Home, Flame, BookmarkIcon, Bell } from "lucide-react";
+import { Home, Flame, BookmarkIcon, Bell, ExternalLink } from "lucide-react";
 import { db } from "@/db/drizzle";
 import { communities } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { defaultCommunities } from "@/config/communities";
+
+const MEDLEARN_URL = process.env.NEXT_PUBLIC_MEDLEARN_URL ?? "";
 
 async function getCommunities() {
   try {
@@ -73,7 +75,29 @@ export async function Sidebar() {
             </Link>
           </>
         )}
+
+        {/* MedLearn cross-app link */}
+        {MEDLEARN_URL && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Platformă
+              </p>
+            </div>
+            <a
+              href={MEDLEARN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors text-sm"
+            >
+              <span>📚</span>
+              <span className="flex-1 truncate">MedLearn</span>
+              <ExternalLink className="h-3 w-3 flex-shrink-0" />
+            </a>
+          </>
+        )}
       </nav>
     </aside>
   );
 }
+
