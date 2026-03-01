@@ -1,21 +1,43 @@
-"use client";
-
 import useSWR from "swr";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
 export function useNotifications() {
-  const { data, error, isLoading, mutate } = useSWR(
-    "/api/notifications?unread=true",
-    fetcher,
-    { refreshInterval: 30000 } // Poll every 30 seconds
-  );
+  const { data, error, isLoading, mutate } = useSWR("/api/notifications", {
+    refreshInterval: 30000,
+  });
+
+  const markAsRead = async (id: number) => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId: id }),
+      });
+      mutate();
+    } catch {
+      // Silently fail
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      mutate();
+    } catch {
+      // Silently fail
+    }
+  };
 
   return {
     notifications: data?.notifications ?? [],
-    unreadCount: data?.unreadCount ?? 0,
+    count: data?.unreadCount ?? 0,
+    error,
     isLoading,
-    isError: !!error,
     mutate,
+    markAsRead,
+    markAllAsRead,
   };
 }

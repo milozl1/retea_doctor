@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SWRProvider } from "@/components/providers/swr-provider";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { CookieConsent } from "@/components/layout/cookie-consent";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MedRețea — Rețeaua Medicilor",
-  description: "Rețeaua de socializare profesională a medicilor din România",
+  title: "Rețea Medicală | MedLearn",
+  description:
+    "Rețea de socializare profesională pentru medici și studenți la medicină",
 };
 
 export default function RootLayout({
@@ -23,26 +21,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ro" suppressHydrationWarning>
-      <body className={geistSans.variable}>
+      <body className={inter.className}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem={false}
-          forcedTheme="dark"
+          disableTransitionOnChange
         >
           <SWRProvider>
             {children}
-            <Toaster
-              theme="dark"
-              position="bottom-right"
-              toastOptions={{
-                style: {
-                  background: "#1E293B",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "white",
-                },
-              }}
-            />
+            <Toaster />
+            <CookieConsent />
           </SWRProvider>
         </ThemeProvider>
       </body>

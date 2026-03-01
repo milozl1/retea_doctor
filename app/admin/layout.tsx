@@ -1,13 +1,36 @@
+import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db/drizzle";
 import { networkUsers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import {
+  BarChart3,
+  Users,
+  FileText,
+  AlertTriangle,
+  ArrowLeft,
+  Shield,
+  Newspaper,
+} from "lucide-react";
 
-async function requireAdmin(userId: string) {
+const NAV_ITEMS = [
+  { href: "/admin", label: "Dashboard", icon: BarChart3 },
+  { href: "/admin/reports", label: "Rapoarte", icon: AlertTriangle },
+  { href: "/admin/posts", label: "Postări", icon: Newspaper },
+  { href: "/admin/users", label: "Utilizatori", icon: Users },
+  { href: "/admin/communities", label: "Comunități", icon: FileText },
+];
+
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { userId } = await requireAuth();
+
   const [user] = await db
-    .select({ role: networkUsers.role })
+    .select()
     .from(networkUsers)
     .where(eq(networkUsers.userId, userId))
     .limit(1);
@@ -15,42 +38,41 @@ async function requireAdmin(userId: string) {
   if (!user || user.role !== "admin") {
     redirect("/");
   }
-}
-
-export default async function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const user = await requireAuth();
-  await requireAdmin(user.id);
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <div className="bg-slate-800 border-b border-white/10 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <Link href="/" className="text-white font-bold">
-            🏥 MedRețea
+    <div className="min-h-screen bg-[#040711]">
+      {/* Admin Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-[#060a14]/90 backdrop-blur-2xl border-b border-white/[0.04]">
+        <div className="flex h-full items-center px-6 gap-6">
+          <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="text-sm">Rețea</span>
           </Link>
-          <span className="text-slate-500">/</span>
-          <span className="text-slate-400 text-sm">Admin</span>
-          <div className="flex gap-4 ml-auto">
-            <Link href="/admin/dashboard" className="text-slate-400 hover:text-white text-sm">
-              Dashboard
-            </Link>
-            <Link href="/admin/dashboard/reports" className="text-slate-400 hover:text-white text-sm">
-              Rapoarte
-            </Link>
-            <Link href="/admin/dashboard/users" className="text-slate-400 hover:text-white text-sm">
-              Utilizatori
-            </Link>
-            <Link href="/admin/dashboard/communities" className="text-slate-400 hover:text-white text-sm">
-              Comunități
-            </Link>
+
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-red-400" />
+            <span className="text-sm font-semibold text-white">Admin Panel</span>
           </div>
+
+          <nav className="flex items-center gap-1 ml-6">
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all"
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
-      </div>
-      <div className="max-w-7xl mx-auto px-4 py-6">{children}</div>
+      </header>
+
+      {/* Content */}
+      <main className="pt-14">
+        {children}
+      </main>
     </div>
   );
 }

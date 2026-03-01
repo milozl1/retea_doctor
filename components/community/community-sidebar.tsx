@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Users, FileText, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
-import { defaultCommunities } from "@/config/communities";
+import { DEFAULT_COMMUNITIES } from "@/config/communities";
 
 interface CommunitySidebarProps {
   community: {
@@ -20,7 +20,7 @@ interface CommunitySidebarProps {
 }
 
 export function CommunitySidebar({ community, isMember = false }: CommunitySidebarProps) {
-  const config = defaultCommunities.find((c) => c.slug === community.slug);
+  const config = DEFAULT_COMMUNITIES.find((c: { slug: string }) => c.slug === community.slug);
 
   return (
     <div className="space-y-3">
@@ -32,7 +32,7 @@ export function CommunitySidebar({ community, isMember = false }: CommunitySideb
         }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{config?.icon ?? "🏥"}</span>
+          <span className="text-2xl">{config?.iconEmoji ?? "🏥"}</span>
           <div>
             <h3 className="font-semibold text-white text-sm">c/{community.name}</h3>
             <p className="text-xs text-slate-400">Comunitate medicală</p>

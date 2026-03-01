@@ -1,24 +1,39 @@
 import { marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
 
-// Server-side markdown rendering with DOMPurify sanitization
+// Configure marked for safe rendering
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
+
 export function renderMarkdown(content: string): string {
-  const rawHtml = marked.parse(content, { async: false }) as string;
-  return DOMPurify.sanitize(rawHtml);
+  const raw = marked.parse(content);
+  if (typeof raw === "string") {
+    return DOMPurify.sanitize(raw, {
+      ALLOWED_TAGS: [
+        "p", "br", "strong", "em", "del", "a", "code", "pre",
+        "h1", "h2", "h3", "h4", "h5", "h6",
+        "ul", "ol", "li", "blockquote", "hr", "img", "table",
+        "thead", "tbody", "tr", "th", "td", "sup", "sub",
+      ],
+      ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "target", "rel"],
+    });
+  }
+  return "";
 }
 
-export function truncateMarkdown(content: string, maxLength: number = 200): string {
-  // Strip markdown syntax for preview
-  const stripped = content
+export function stripMarkdown(content: string): string {
+  return content
     .replace(/#{1,6}\s/g, "")
-    .replace(/\*\*|__/g, "")
-    .replace(/\*|_/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
     .replace(/`{1,3}[^`]*`{1,3}/g, "")
-    .replace(/^\s*[-*+]\s/gm, "")
-    .replace(/^\s*\d+\.\s/gm, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/>\s/g, "")
+    .replace(/[-*+]\s/g, "")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\n/g, " ")
     .trim();
-
-  if (stripped.length <= maxLength) return stripped;
-  return stripped.slice(0, maxLength) + "...";
 }

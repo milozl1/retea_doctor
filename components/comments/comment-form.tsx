@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 interface CommentFormProps {
@@ -11,6 +12,7 @@ interface CommentFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   placeholder?: string;
+  compact?: boolean;
 }
 
 export function CommentForm({
@@ -18,34 +20,39 @@ export function CommentForm({
   parentId,
   onSuccess,
   onCancel,
-  placeholder = "Adaugă un comentariu...",
+  placeholder = "Scrie un comentariu... (Markdown suportat)",
+  compact = false,
 }: CommentFormProps) {
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || isSubmitting) return;
+    if (!content.trim()) return;
 
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/comments", {
+      const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, parentId, content: content.trim() }),
+        body: JSON.stringify({
+          postId,
+          content: content.trim(),
+          parentId,
+        }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error ?? "Eroare la postarea comentariului");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Eroare la trimitere");
       }
 
       setContent("");
       toast.success("Comentariu adăugat!");
       onSuccess?.();
-    } catch (error) {
+    } catch (err) {
       toast.error(
-        error instanceof Error ? error.message : "Eroare la postarea comentariului"
+        err instanceof Error ? err.message : "Eroare la adăugarea comentariului"
       );
     } finally {
       setIsSubmitting(false);
@@ -53,34 +60,44 @@ export function CommentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2">
+    <form onSubmit={handleSubmit} className="space-y-3">
       <Textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder={placeholder}
-        className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 resize-none min-h-[80px]"
-        rows={3}
+        className={`bg-white/5 border-white/10 text-white placeholder:text-slate-600 ${
+          compact ? "min-h-[80px]" : "min-h-[120px]"
+        }`}
+        maxLength={10000}
       />
-      <div className="flex gap-2 justify-end">
-        {onCancel && (
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-600">Markdown suportat</p>
+        <div className="flex gap-2">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              className="text-slate-400"
+            >
+              Anulează
+            </Button>
+          )}
           <Button
-            type="button"
-            variant="ghost"
+            type="submit"
             size="sm"
-            onClick={onCancel}
-            className="text-slate-400 hover:text-white"
+            disabled={isSubmitting || !content.trim()}
+            className="bg-primary hover:bg-primary/90 gap-2"
           >
-            Anulează
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            Trimite
           </Button>
-        )}
-        <Button
-          type="submit"
-          size="sm"
-          disabled={!content.trim() || isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {isSubmitting ? "Se postează..." : "Comentează"}
-        </Button>
+        </div>
       </div>
     </form>
   );

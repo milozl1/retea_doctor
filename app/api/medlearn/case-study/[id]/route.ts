@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Neautentificat" }, { status: 401 });
   }
 
-  const rl = rateLimit(`medlearn-case:${userId}`, { max: 30, windowMs: 60_000 });
+  const rl = rateLimit(`medlearn-case:${userId}`, { maxRequests: 30, windowMs: 60_000 });
   if (!rl.success) {
     return NextResponse.json({ error: "Prea multe cereri" }, { status: 429 });
   }

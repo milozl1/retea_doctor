@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { CommunityRules } from "@/components/community/community-rules";
 import { Users, FileText, Calendar, ArrowLeft } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { defaultCommunities } from "@/config/communities";
+import { DEFAULT_COMMUNITIES } from "@/config/communities";
 import { Button } from "@/components/ui/button";
 
 interface PageProps {
@@ -36,7 +36,7 @@ export default async function CommunityAboutPage({ params }: PageProps) {
   const community = await getCommunity(slug);
   if (!community) notFound();
 
-  const config = defaultCommunities.find((c) => c.slug === community.slug);
+  const config = DEFAULT_COMMUNITIES.find((c: { slug: string }) => c.slug === community.slug);
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -60,7 +60,7 @@ export default async function CommunityAboutPage({ params }: PageProps) {
         }}
       >
         <div className="flex items-center gap-3">
-          <span className="text-4xl">{config?.icon ?? "🏥"}</span>
+          <span className="text-4xl">{config?.iconEmoji ?? "🏥"}</span>
           <div>
             <h1 className="text-2xl font-bold text-white">c/{community.name}</h1>
             <p className="text-slate-400">{community.description}</p>

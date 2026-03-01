@@ -1,138 +1,141 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { requireAuth } from "@/lib/auth";
 import { db } from "@/db/drizzle";
 import { comments, posts, networkUsers, notifications } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { requireAuth } from "@/lib/auth";
+import { getOrCreateNetworkUser } from "@/db/queries";
 import { createCommentSchema } from "@/lib/validators";
-import { z } from "zod";
+import { eq, sql, and } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { MAX_COMMENT_DEPTH } from "@/config/constants";
 
-export async function createComment(
-  data: z.infer<typeof createCommentSchema>
-): Promise<{ success: boolean; commentId?: number; error?: string }> {
-  try {
-    const user = await requireAuth();
-    const validated = createCommentSchema.parse(data);
+export async function createComment(formData: unknown) {
+  const { userId, user } = await requireAuth();
 
-    // Ensure network user exists
-    await db
-      .insert(networkUsers)
-      .values({
-        userId: user.id,
-        userName: user.firstName,
-        userImageSrc: user.imageUrl,
-        experienceLevel: "student",
-      })
-      .onConflictDoNothing();
+  const parsed = createCommentSchema.safeParse(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.errors[0]?.message ?? "Date invalide" };
+  }
 
-    // Determine depth
-    let depth = 0;
-    if (validated.parentId) {
-      const [parent] = await db
-        .select({ depth: comments.depth })
-        .from(comments)
-        .where(eq(comments.id, validated.parentId))
-        .limit(1);
-      depth = Math.min((parent?.depth ?? 0) + 1, 5);
-    }
+  await getOrCreateNetworkUser({
+    userId,
+    userName: user.firstName,
+    userImageSrc: user.imageUrl,
+  });
 
-    const [comment] = await db
-      .insert(comments)
-      .values({
-        postId: validated.postId,
-        userId: user.id,
-        parentId: validated.parentId ?? null,
-        content: validated.content,
-        depth,
-      })
-      .returning({ id: comments.id });
+  const data = parsed.data;
+  let depth = 0;
 
-    if (!comment) throw new Error("Nu s-a putut crea comentariul");
-
-    // Increment comment count on post
-    await db
-      .update(posts)
-      .set({ commentCount: sql`${posts.commentCount} + 1` })
-      .where(eq(posts.id, validated.postId));
-
-    // Increment user comment count
-    await db
-      .update(networkUsers)
-      .set({ commentCount: sql`${networkUsers.commentCount} + 1` })
-      .where(eq(networkUsers.userId, user.id));
-
-    // Send notification to post author
-    const [post] = await db
-      .select({ userId: posts.userId })
-      .from(posts)
-      .where(eq(posts.id, validated.postId))
+  // Check parent comment if replying
+  if (data.parentId) {
+    const [parent] = await db
+      .select()
+      .from(comments)
+      .where(eq(comments.id, data.parentId))
       .limit(1);
 
-    if (post && post.userId !== user.id) {
+    if (!parent) {
+      return { error: "Comentariul părinte nu există" };
+    }
+
+    if (parent.depth >= MAX_COMMENT_DEPTH) {
+      return { error: "Nivel maxim de nesting atins" };
+    }
+
+    depth = parent.depth + 1;
+  }
+
+  // Check post exists and isn't locked
+  const [post] = await db
+    .select()
+    .from(posts)
+    .where(eq(posts.id, data.postId))
+    .limit(1);
+
+  if (!post) {
+    return { error: "Postarea nu există" };
+  }
+
+  if (post.isLocked) {
+    return { error: "Postarea este blocată" };
+  }
+
+  const [comment] = await db
+    .insert(comments)
+    .values({
+      postId: data.postId,
+      userId,
+      parentId: data.parentId || null,
+      content: data.content,
+      depth,
+    })
+    .returning();
+
+  // Update denormalized counts
+  await db
+    .update(posts)
+    .set({ commentCount: sql`${posts.commentCount} + 1` })
+    .where(eq(posts.id, data.postId));
+
+  await db
+    .update(networkUsers)
+    .set({ commentCount: sql`${networkUsers.commentCount} + 1` })
+    .where(eq(networkUsers.userId, userId));
+
+  // Create notification for post author (if not commenting on own post)
+  if (post.userId !== userId && !data.parentId) {
+    await db.insert(notifications).values({
+      userId: post.userId,
+      actorId: userId,
+      type: "reply_post",
+      postId: data.postId,
+      commentId: comment.id,
+      message: "a comentat la postarea ta",
+    });
+  }
+
+  // Create notification for parent comment author (if replying)
+  if (data.parentId) {
+    const [parentComment] = await db
+      .select()
+      .from(comments)
+      .where(eq(comments.id, data.parentId))
+      .limit(1);
+
+    if (parentComment && parentComment.userId !== userId) {
       await db.insert(notifications).values({
-        userId: post.userId,
-        actorId: user.id,
-        type: "reply_post",
-        postId: validated.postId,
+        userId: parentComment.userId,
+        actorId: userId,
+        type: "reply_comment",
+        postId: data.postId,
         commentId: comment.id,
-        message: "a răspuns la postarea ta",
+        message: "a răspuns la comentariul tău",
       });
     }
-
-    revalidatePath(`/post/${validated.postId}`);
-
-    return { success: true, commentId: comment.id };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: error.issues[0]?.message ?? "Date invalide" };
-    }
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Eroare la creare",
-    };
   }
+
+  revalidatePath(`/post/${data.postId}`);
+  return { id: comment.id };
 }
 
-export async function deleteComment(
-  commentId: number
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const user = await requireAuth();
+export async function deleteComment(commentId: number) {
+  const { userId } = await requireAuth();
 
-    const [comment] = await db
-      .select({ userId: comments.userId, postId: comments.postId })
-      .from(comments)
-      .where(eq(comments.id, commentId))
-      .limit(1);
+  const [comment] = await db
+    .select()
+    .from(comments)
+    .where(eq(comments.id, commentId))
+    .limit(1);
 
-    if (!comment) return { success: false, error: "Comentariul nu a fost găsit" };
-
-    const [netUser] = await db
-      .select({ role: networkUsers.role })
-      .from(networkUsers)
-      .where(eq(networkUsers.userId, user.id))
-      .limit(1);
-
-    if (comment.userId !== user.id && netUser?.role !== "admin") {
-      return { success: false, error: "Nu ai permisiune" };
-    }
-
-    await db
-      .update(comments)
-      .set({ isDeleted: true })
-      .where(eq(comments.id, commentId));
-
-    // Decrement post comment count
-    await db
-      .update(posts)
-      .set({ commentCount: sql`GREATEST(${posts.commentCount} - 1, 0)` })
-      .where(eq(posts.id, comment.postId));
-
-    revalidatePath(`/post/${comment.postId}`);
-
-    return { success: true };
-  } catch {
-    return { success: false, error: "Eroare la ștergere" };
+  if (!comment || comment.userId !== userId) {
+    return { error: "Nu poți șterge acest comentariu" };
   }
+
+  await db
+    .update(comments)
+    .set({ isDeleted: true })
+    .where(eq(comments.id, commentId));
+
+  revalidatePath(`/post/${comment.postId}`);
+  return { success: true };
 }

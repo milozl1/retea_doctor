@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { defaultCommunities } from "@/config/communities";
+import { DEFAULT_COMMUNITIES } from "@/config/communities";
 import { Users, FileText, LayoutGrid } from "lucide-react";
 
 export const metadata = {
@@ -46,8 +46,8 @@ export default async function AdminCommunitiesPage() {
           </div>
         ) : (
           allCommunities.map((community) => {
-            const config = defaultCommunities.find(
-              (c) => c.slug === community.slug
+            const config = DEFAULT_COMMUNITIES.find(
+              (c: { slug: string }) => c.slug === community.slug
             );
             return (
               <div
@@ -60,7 +60,7 @@ export default async function AdminCommunitiesPage() {
                     className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
                     style={{ backgroundColor: community.color + "20" }}
                   >
-                    {config?.icon ?? "🏥"}
+                    {config?.iconEmoji ?? "🏥"}
                   </div>
 
                   {/* Info */}

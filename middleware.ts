@@ -1,16 +1,11 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const protectedRoutes = [
-  "/post/new",
-  "/saved",
-  "/notifications",
-  "/admin",
-];
-
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
   });
 
   const supabase = createServerClient(
@@ -21,37 +16,41 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+          cookiesToSet.forEach(({ name, value }: { name: string; value: string }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({
-            request,
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+          cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options?: any }) =>
+            response.cookies.set(name, value, options)
           );
         },
       },
     }
   );
 
+  // Refresh session & get user (single call)
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-  const isProtected = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
+  // Protect routes that require auth
+  const protectedPaths = ["/post/new", "/saved", "/notifications", "/admin", "/settings", "/messages"];
+  const isProtected = protectedPaths.some((path) =>
+    request.nextUrl.pathname.startsWith(path)
   );
 
   if (isProtected && !user) {
     const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("redirectTo", pathname);
+    loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  return supabaseResponse;
+  return response;
 }
 
 export const config = {

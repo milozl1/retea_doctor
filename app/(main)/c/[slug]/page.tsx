@@ -1,85 +1,122 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { getCommunityBySlug } from "@/db/queries";
+import { auth } from "@/lib/auth";
 import { db } from "@/db/drizzle";
-import { communities } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { communityMemberships } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { PostListServer } from "@/components/feed/post-list-server";
 import { FeedSortTabs } from "@/components/feed/feed-sort-tabs";
-import { PostList } from "@/components/feed/post-list";
-import { Users, FileText } from "lucide-react";
-import { formatNumber } from "@/lib/utils";
-import { defaultCommunities } from "@/config/communities";
-import { currentUser } from "@/lib/auth";
+import { JoinCommunityButton } from "@/components/community/join-button";
+import { Button } from "@/components/ui/button";
+import { Users, Plus, ScrollText } from "lucide-react";
+import Link from "next/link";
 
-interface PageProps {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<{ sort?: string }>;
-}
-
-async function getCommunity(slug: string) {
-  try {
-    const [community] = await db
-      .select()
-      .from(communities)
-      .where(eq(communities.slug, slug))
-      .limit(1);
-    return community;
-  } catch {
-    return null;
+export default async function CommunityPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { sort?: string };
+}) {
+  const community = await getCommunityBySlug(params.slug);
+  if (!community) {
+    notFound();
   }
-}
 
-export default async function CommunityPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
-  const community = await getCommunity(slug);
-  if (!community) notFound();
+  const sort = (searchParams.sort as "hot" | "new" | "top") || "hot";
 
-  const user = await currentUser();
-  const { sort: sortParam } = await searchParams;
-  const sort = (sortParam as "hot" | "new" | "top") ?? "hot";
-  const config = defaultCommunities.find((c) => c.slug === community.slug);
+  const { userId } = await auth();
+  let isMember = false;
+
+  if (userId) {
+    const [membership] = await db
+      .select()
+      .from(communityMemberships)
+      .where(
+        and(
+          eq(communityMemberships.userId, userId),
+          eq(communityMemberships.communityId, community.id)
+        )
+      )
+      .limit(1);
+    isMember = !!membership;
+  }
 
   return (
     <div className="space-y-4">
-      {/* Community header */}
-      <div
-        className="rounded-xl p-5 border border-white/10"
-        style={{
-          background: `linear-gradient(135deg, ${community.color}20 0%, rgba(255,255,255,0.03) 100%)`,
-        }}
-      >
-        <div className="flex items-center gap-3 mb-2">
-          <span className="text-3xl">{config?.icon ?? "🏥"}</span>
-          <div>
-            <h1 className="text-xl font-bold text-white">c/{community.name}</h1>
-            <p className="text-slate-400 text-sm">{community.description}</p>
+      {/* Community Header */}
+      <div className="glass p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+              style={{ backgroundColor: community.color + "20" }}
+            >
+              {community.iconSrc || "🏥"}
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                {community.name}
+              </h1>
+              <p className="text-gray-400 text-sm flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {community.memberCount} membri
+              </p>
+            </div>
           </div>
+
+          {userId && (
+            <div className="flex gap-2">
+              <JoinCommunityButton communityId={community.id} isMember={isMember} />
+              <Link href={`/post/new?community=${community.slug}`}>
+                <Button size="sm" variant="outline" className="glass-sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Postare nouă
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
-        <div className="flex gap-4 text-xs text-slate-500">
-          <span className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            {formatNumber(community.memberCount)} membri
-          </span>
-          <span className="flex items-center gap-1">
-            <FileText className="h-3 w-3" />
-            {formatNumber(community.postCount)} postări
-          </span>
-        </div>
+
+        {community.description && (
+          <p className="text-gray-300 text-sm mt-3">
+            {community.description}
+          </p>
+        )}
       </div>
 
-      {/* Post CTA */}
-      {user && (
-        <Link href={`/post/new?communityId=${community.id}`}>
-          <div className="bg-white/5 border border-white/10 rounded-xl p-3 hover:bg-white/[0.07] transition-colors cursor-pointer flex items-center gap-3">
-            <span className="text-slate-400 text-sm">Postează în c/{community.name}...</span>
+      {/* Rules */}
+      {community.rules && (
+        <div className="glass-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ScrollText className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-medium text-white">Regulile comunității</h3>
           </div>
-        </Link>
+          <p className="text-sm text-slate-400 whitespace-pre-line leading-relaxed">
+            {community.rules}
+          </p>
+        </div>
       )}
 
-      {/* Sort */}
-      <FeedSortTabs currentSort={sort} />
+      {/* Sort Tabs */}
+      <FeedSortTabs />
 
-      {/* Posts */}
-      <PostList sort={sort} communityId={community.id} />
+      {/* Post List */}
+      <Suspense
+        fallback={
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="glass p-6 animate-pulse">
+                <div className="h-4 bg-white/10 rounded w-3/4 mb-3" />
+                <div className="h-3 bg-white/5 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        }
+      >
+        <PostListServer sort={sort} communityId={community.id} communitySlug={community.slug} />
+      </Suspense>
     </div>
   );
 }

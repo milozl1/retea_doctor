@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 /**
  * Auth callback for:
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const safeRedirect = redirectTo.startsWith("/") ? redirectTo : "/";
 
   if (code) {
-    const supabase = await createClient();
+    const supabase = createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {

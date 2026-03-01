@@ -2,54 +2,50 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { POST_TYPE_OPTIONS } from "@/config/constants";
+import { Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
-
-const POST_TYPES = [
-  { value: "discussion", label: "💬 Discuție" },
-  { value: "case_study", label: "🩺 Caz Clinic" },
-  { value: "article", label: "📄 Articol" },
-  { value: "quick_question", label: "❓ Întrebare Rapidă" },
-  { value: "external_link", label: "🔗 Link Extern" },
-] as const;
 
 interface Community {
   id: number;
-  name: string;
   slug: string;
+  name: string;
 }
 
-export function PostForm() {
+interface PostFormProps {
+  communities: Community[];
+  defaultCommunityId?: number;
+}
+
+export function PostForm({ communities, defaultCommunityId }: PostFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const defaultCommunityId = searchParams.get("communityId")
-    ? parseInt(searchParams.get("communityId")!)
-    : null;
   // Support ?caseStudyId=N to pre-populate from a MedLearn case study
   const caseStudyIdParam = searchParams.get("caseStudyId")
     ? parseInt(searchParams.get("caseStudyId")!)
     : null;
 
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [type, setType] = useState<string>("discussion");
-  const [communityId, setCommunityId] = useState<number | null>(defaultCommunityId);
-  const [linkUrl, setLinkUrl] = useState("");
-  const [tags, setTags] = useState("");
-  const [communities, setCommunities] = useState<Community[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingCase, setIsFetchingCase] = useState(false);
-
-  // Load communities list
-  useEffect(() => {
-    fetch("/api/communities")
-      .then((r) => r.json())
-      .then((data) => setCommunities(data.communities ?? []))
-      .catch(console.error);
-  }, []);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [type, setType] = useState("discussion");
+  const [communityId, setCommunityId] = useState<string>(
+    defaultCommunityId ? String(defaultCommunityId) : ""
+  );
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
 
   // Pre-populate from MedLearn case study when ?caseStudyId= is present
   useEffect(() => {
@@ -62,12 +58,11 @@ export function PostForm() {
         if (data.caseStudy) {
           const cs = data.caseStudy;
           setTitle(cs.title ?? "");
-          // Build rich markdown content from case study fields
           const parts: string[] = [];
           if (cs.description) parts.push(`## Descriere\n\n${cs.description}`);
           if (cs.patientHistory) parts.push(`## Istoric pacient\n\n${cs.patientHistory}`);
           if (cs.presentation) parts.push(`## Prezentare clinică\n\n${cs.presentation}`);
-          if (cs.category) setTags(cs.category);
+          if (cs.category) setTags([cs.category.toLowerCase()]);
           setContent(parts.join("\n\n"));
           toast.success("Caz clinic importat din MedLearn!");
         }
@@ -77,42 +72,52 @@ export function PostForm() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseStudyIdParam]);
 
+  const addTag = () => {
+    const tag = tagInput.trim().toLowerCase();
+    if (tag && !tags.includes(tag) && tags.length < 5) {
+      setTags([...tags, tag]);
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter((t) => t !== tagToRemove));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !communityId || isSubmitting) return;
+    if (!title.trim() || !communityId) {
+      toast.error("Completează titlul și selectează o comunitate");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const tagArray = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
-      const response = await fetch("/api/posts", {
+      const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
           content: content.trim(),
           type,
-          communityId,
-          linkUrl: linkUrl.trim() || null,
-          tags: tagArray,
+          communityId: parseInt(communityId),
+          tags,
           caseStudyId: caseStudyIdParam ?? undefined,
         }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error ?? "Eroare la postare");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Eroare la creare");
       }
 
-      const data = await response.json();
+      const data = await res.json();
       toast.success("Postare creată cu succes!");
-      router.push(`/post/${data.post.id}`);
-    } catch (error) {
+      router.push(`/post/${data.id}`);
+      router.refresh();
+    } catch (err) {
       toast.error(
-        error instanceof Error ? error.message : "Eroare la postare"
+        err instanceof Error ? err.message : "Eroare la crearea postării"
       );
     } finally {
       setIsSubmitting(false);
@@ -120,10 +125,10 @@ export function PostForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* MedLearn import banner */}
       {caseStudyIdParam && (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2 text-sm text-blue-300 flex items-center gap-2">
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3 text-sm text-blue-300 flex items-center gap-2">
           <span>📚</span>
           {isFetchingCase
             ? "Se importă cazul din MedLearn..."
@@ -131,120 +136,148 @@ export function PostForm() {
         </div>
       )}
 
-      {/* Type selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {POST_TYPES.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setType(value)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
-              type === value
-                ? "bg-blue-600 text-white"
-                : "bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* Post Type */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-300">
+          Tip postare
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {POST_TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setType(opt.value)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-all ${
+                type === opt.value
+                  ? "border-primary bg-primary/20 text-primary"
+                  : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <span>{opt.icon}</span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Community */}
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
-          Comunitate <span className="text-red-400">*</span>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-300">
+          Comunitate *
         </label>
-        <select
-          value={communityId ?? ""}
-          onChange={(e) =>
-            setCommunityId(e.target.value ? parseInt(e.target.value) : null)
-          }
-          required
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-blue-500 focus:outline-none"
-        >
-          <option value="">Selectează o comunitate...</option>
-          {communities.map((c) => (
-            <option key={c.id} value={c.id} className="bg-slate-800">
-              c/{c.name}
-            </option>
-          ))}
-        </select>
+        <Select value={communityId} onValueChange={setCommunityId}>
+          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+            <SelectValue placeholder="Selectează o comunitate" />
+          </SelectTrigger>
+          <SelectContent className="bg-slate-800 border-white/10">
+            {communities.map((c) => (
+              <SelectItem
+                key={c.id}
+                value={String(c.id)}
+                className="text-slate-300"
+              >
+                c/{c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Title */}
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
-          Titlu <span className="text-red-400">*</span>
-        </label>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-300">Titlu *</label>
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Titlul postării..."
-          required
+          placeholder="Un titlu descriptiv pentru postarea ta"
+          className="bg-white/5 border-white/10 text-white placeholder:text-slate-600"
           maxLength={300}
-          className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
         />
-        <p className="text-xs text-slate-500 mt-1">{title.length}/300</p>
+        <p className="text-xs text-slate-600">{title.length}/300</p>
       </div>
 
       {/* Content */}
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-300">
           Conținut (Markdown suportat)
         </label>
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Scrie conținutul postării... (Markdown suportat)"
-          rows={8}
-          className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 resize-none"
+          placeholder="Scrie conținutul postării tale... (Markdown suportat)"
+          className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 min-h-[200px]"
+          maxLength={40000}
         />
       </div>
-
-      {/* Link URL (for external_link type) */}
-      {type === "external_link" && (
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            URL Link <span className="text-red-400">*</span>
-          </label>
-          <Input
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="https://..."
-            type="url"
-            className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-          />
-        </div>
-      )}
 
       {/* Tags */}
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
-          Taguri (separate prin virgulă)
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-300">
+          Tag-uri (max 5)
         </label>
-        <Input
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="cardiologie, infarct, tratament..."
-          className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-        />
+        <div className="flex gap-2">
+          <Input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            placeholder="Adaugă un tag"
+            className="bg-white/5 border-white/10 text-white"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTag();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={addTag}
+            disabled={tags.length >= 5}
+            className="border-white/10"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="bg-white/5 text-slate-300 gap-1"
+              >
+                #{tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="hover:text-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-3 pt-2">
+      {/* Submit */}
+      <div className="flex gap-3 justify-end">
         <Button
           type="button"
           variant="ghost"
           onClick={() => router.back()}
-          className="text-slate-400 hover:text-white"
+          className="text-slate-400"
         >
           Anulează
         </Button>
         <Button
           type="submit"
-          disabled={!title.trim() || !communityId || isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+          disabled={isSubmitting || !title.trim() || !communityId}
+          className="bg-primary hover:bg-primary/90 gap-2"
         >
-          {isSubmitting ? "Se publică..." : "Publică postarea"}
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          Publică
         </Button>
       </div>
     </form>

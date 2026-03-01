@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Reply, Edit, Trash2, Clock } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { VoteButtons } from "@/components/vote/vote-buttons";
 import { MarkdownRenderer } from "@/components/post/markdown-renderer";
-import { CommentForm } from "./comment-form";
+import { CommentForm } from "@/components/comments/comment-form";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { timeAgo } from "@/lib/utils";
-import { COMMENT_MAX_DEPTH } from "@/config/constants";
+import { MessageSquare, Flag, MoreHorizontal, Trash2, Pencil } from "lucide-react";
+import { useModal } from "@/stores/modal-store";
+import { MAX_COMMENT_DEPTH } from "@/config/constants";
 
 interface CommentData {
   comment: {
@@ -19,47 +21,72 @@ interface CommentData {
     parentId: number | null;
     content: string;
     depth: number;
-    upvotes: number;
-    downvotes: number;
     score: number;
     isDeleted: boolean;
-    editedAt: string | null;
+    editedAt: string | Date | null;
     createdAt: string | Date;
   };
   author: {
     userId: string;
     userName: string;
     userImageSrc: string;
-    isVerified?: boolean;
-  } | null;
+    experienceLevel: string;
+    isVerified: boolean;
+  };
+  userVote?: "upvote" | "downvote" | null;
   children?: CommentData[];
 }
 
 interface CommentItemProps {
   data: CommentData;
   postAuthorId: string;
-  currentUserId?: string;
-  onRefresh: () => void;
+  currentUserId?: string | null;
+  onRefresh?: () => void;
 }
 
-export function CommentItem({
-  data,
-  postAuthorId,
-  currentUserId,
-  onRefresh,
-}: CommentItemProps) {
-  const [isReplying, setIsReplying] = useState(false);
+export function CommentItem({ data, postAuthorId, currentUserId, onRefresh }: CommentItemProps) {
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(data.comment.content);
+  const [isSaving, setIsSaving] = useState(false);
+  const { onOpen } = useModal();
+
   const { comment, author, children } = data;
   const isOP = comment.userId === postAuthorId;
-  const isOwn = comment.userId === currentUserId;
-  const canReply = comment.depth < COMMENT_MAX_DEPTH;
+  const isOwner = !!currentUserId && comment.userId === currentUserId;
+  const canReply = comment.depth < MAX_COMMENT_DEPTH && !comment.isDeleted;
+
+  async function handleSaveEdit() {
+    if (!editContent.trim() || editContent === comment.content) {
+      setIsEditing(false);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/comments/${comment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent.trim() }),
+      });
+      if (res.ok) {
+        setIsEditing(false);
+        onRefresh?.();
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   if (comment.isDeleted) {
     return (
-      <div className="py-2 text-slate-500 italic text-sm">
-        [comentariu șters]
+      <div className="py-3">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <span className="italic">[comentariu șters]</span>
+          <span>• {timeAgo(comment.createdAt)}</span>
+        </div>
         {children && children.length > 0 && (
-          <div className="ml-4 mt-2 pl-3 border-l border-white/10 space-y-3">
+          <div className="ml-4 pl-4 border-l border-white/5 mt-2 space-y-2">
             {children.map((child) => (
               <CommentItem
                 key={child.comment.id}
@@ -76,116 +103,179 @@ export function CommentItem({
   }
 
   return (
-    <div className="group">
+    <div className="py-3 animate-fade-in">
       <div className="flex gap-3">
         {/* Vote */}
-        <div className="flex-shrink-0 mt-0.5">
+        <div className="flex flex-col items-center">
           <VoteButtons
-            commentId={comment.id}
-            upvotes={comment.upvotes}
-            downvotes={comment.downvotes}
+            id={comment.id}
+            type="comment"
             score={comment.score}
-            orientation="vertical"
+            userVote={data.userVote ?? null}
           />
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
-          {/* Author */}
-          <div className="flex items-center gap-2 mb-1">
-            {author && (
-              <>
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={author.userImageSrc} />
-                  <AvatarFallback className="text-[8px]">
-                    {author.userName[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <Link
-                  href={`/u/${author.userId}`}
-                  className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
-                >
-                  {author.userName}
-                </Link>
-              </>
-            )}
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Header */}
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Link
+              href={`/u/${author.userId}`}
+              className="flex items-center gap-1.5 hover:text-white transition-colors"
+            >
+              <Avatar className="h-5 w-5">
+                <AvatarImage src={author.userImageSrc} />
+                <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
+                  {author.userName[0]}
+                </AvatarFallback>
+              </Avatar>
+              <span className="font-medium text-slate-300">
+                {author.userName}
+              </span>
+              {author.isVerified && <span className="text-primary">✓</span>}
+            </Link>
             {isOP && (
-              <Badge className="text-[10px] bg-blue-500/20 text-blue-400 border-blue-500/30 py-0 px-1.5">
+              <Badge
+                variant="outline"
+                className="text-[9px] border-primary/30 text-primary px-1.5 py-0"
+              >
                 OP
               </Badge>
             )}
-            {author?.isVerified && (
-              <span className="text-blue-400 text-xs">✓</span>
-            )}
-            <span className="text-xs text-slate-500 flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {timeAgo(comment.createdAt)}
-            </span>
-            {comment.editedAt && (
-              <span className="text-xs text-slate-600 italic">(editat)</span>
-            )}
-          </div>
+            <span>{timeAgo(comment.createdAt)}</span>
+            {comment.editedAt && <span className="text-slate-600">(editat)</span>}
 
-          {/* Content */}
-          <MarkdownRenderer content={comment.content} />
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {canReply && currentUserId && (
+            {/* Collapse toggle */}
+            {children && children.length > 0 && (
               <button
-                onClick={() => setIsReplying(!isReplying)}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-400 transition-colors"
+                onClick={() => setCollapsed(!collapsed)}
+                className="text-slate-600 hover:text-slate-400 text-[10px]"
               >
-                <Reply className="h-3 w-3" />
-                Răspunde
+                [{collapsed ? "+" : "-"}]
               </button>
             )}
-            {isOwn && (
-              <>
-                <button className="flex items-center gap-1 text-xs text-slate-500 hover:text-yellow-400 transition-colors">
-                  <Edit className="h-3 w-3" />
-                  Editează
-                </button>
-                <button className="flex items-center gap-1 text-xs text-slate-500 hover:text-red-400 transition-colors">
-                  <Trash2 className="h-3 w-3" />
-                  Șterge
-                </button>
-              </>
-            )}
           </div>
 
-          {/* Reply form */}
-          {isReplying && (
-            <div className="mt-2">
-              <CommentForm
-                postId={comment.postId}
-                parentId={comment.id}
-                onSuccess={() => {
-                  setIsReplying(false);
-                  onRefresh();
-                }}
-                onCancel={() => setIsReplying(false)}
-                placeholder="Scrie un răspuns..."
-              />
-            </div>
+          {!collapsed && (
+            <>
+              {/* Body */}
+              {isEditing ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full min-h-[80px] bg-white/[0.04] border border-white/[0.08] rounded-lg p-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50 resize-y"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs bg-primary hover:bg-primary/80"
+                      onClick={handleSaveEdit}
+                      disabled={isSaving || !editContent.trim()}
+                    >
+                      {isSaving ? "Se salvează..." : "Salvează"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-slate-500"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditContent(comment.content);
+                      }}
+                    >
+                      Anulează
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <MarkdownRenderer
+                  content={comment.content}
+                  className="text-sm"
+                />
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 pt-1">
+                {canReply && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-slate-500 hover:text-white gap-1"
+                    onClick={() => setShowReplyForm(!showReplyForm)}
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    Răspunde
+                  </Button>
+                )}
+                {isOwner && !isEditing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-slate-500 hover:text-amber-400 gap-1"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-slate-500 hover:text-emergency gap-1"
+                  onClick={() =>
+                    onOpen("report", { commentId: comment.id })
+                  }
+                >
+                  <Flag className="h-3 w-3" />
+                </Button>
+                {isOwner && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-slate-500 hover:text-emergency-500 gap-1"
+                    onClick={() => onOpen("deleteConfirm", { commentId: comment.id })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Reply form */}
+              {showReplyForm && (
+                <div className="mt-2">
+                  <CommentForm
+                    postId={comment.postId}
+                    parentId={comment.id}
+                    compact
+                    placeholder={`Răspunde lui ${author.userName}...`}
+                    onSuccess={() => {
+                      setShowReplyForm(false);
+                      onRefresh?.();
+                    }}
+                    onCancel={() => setShowReplyForm(false)}
+                  />
+                </div>
+              )}
+
+              {/* Children */}
+              {children && children.length > 0 && (
+                <div className="ml-2 pl-4 border-l border-white/5 mt-2 space-y-0">
+                  {children.map((child) => (
+                    <CommentItem
+                      key={child.comment.id}
+                      data={child}
+                      postAuthorId={postAuthorId}
+                      currentUserId={currentUserId}
+                      onRefresh={onRefresh}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
-
-      {/* Children */}
-      {children && children.length > 0 && (
-        <div className="ml-8 mt-3 pl-3 border-l border-white/10 space-y-3">
-          {children.map((child) => (
-            <CommentItem
-              key={child.comment.id}
-              data={child}
-              postAuthorId={postAuthorId}
-              currentUserId={currentUserId}
-              onRefresh={onRefresh}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

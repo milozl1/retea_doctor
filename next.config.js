@@ -2,7 +2,7 @@
 const nextConfig = {
   images: {
     remotePatterns: [
-      // Supabase Storage — avatars uploaded via the Doctor/MedLearn platform
+      // Supabase Storage — avatars uploaded via Doctor/MedLearn
       { protocol: "https", hostname: "*.supabase.co" },
       { protocol: "https", hostname: "*.supabase.in" },
       // Google OAuth avatars
@@ -13,4 +13,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

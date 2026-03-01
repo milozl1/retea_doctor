@@ -1,39 +1,25 @@
 import { create } from "zustand";
 
-interface ModalStore {
-  isReportModalOpen: boolean;
-  reportPostId: number | null;
-  reportCommentId: number | null;
-  openReportModal: (postId?: number, commentId?: number) => void;
-  closeReportModal: () => void;
-
-  isDeleteModalOpen: boolean;
-  deleteTarget: { type: "post" | "comment"; id: number } | null;
-  openDeleteModal: (type: "post" | "comment", id: number) => void;
-  closeDeleteModal: () => void;
+interface ModalData {
+  postId?: number;
+  commentId?: number;
+  onConfirmDelete?: () => void;
 }
 
-export const useModalStore = create<ModalStore>((set) => ({
-  isReportModalOpen: false,
-  reportPostId: null,
-  reportCommentId: null,
-  openReportModal: (postId, commentId) =>
-    set({
-      isReportModalOpen: true,
-      reportPostId: postId ?? null,
-      reportCommentId: commentId ?? null,
-    }),
-  closeReportModal: () =>
-    set({
-      isReportModalOpen: false,
-      reportPostId: null,
-      reportCommentId: null,
-    }),
+type ModalType = "report" | "deleteConfirm" | "createPost";
 
-  isDeleteModalOpen: false,
-  deleteTarget: null,
-  openDeleteModal: (type, id) =>
-    set({ isDeleteModalOpen: true, deleteTarget: { type, id } }),
-  closeDeleteModal: () =>
-    set({ isDeleteModalOpen: false, deleteTarget: null }),
+interface ModalStore {
+  type: ModalType | null;
+  data: ModalData;
+  isOpen: boolean;
+  onOpen: (type: ModalType, data?: ModalData) => void;
+  onClose: () => void;
+}
+
+export const useModal = create<ModalStore>((set) => ({
+  type: null,
+  data: {},
+  isOpen: false,
+  onOpen: (type, data = {}) => set({ isOpen: true, type, data }),
+  onClose: () => set({ type: null, isOpen: false, data: {} }),
 }));

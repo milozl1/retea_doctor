@@ -6,17 +6,8 @@ const config: Config = {
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
-    "./src/**/*.{ts,tsx}",
   ],
-  prefix: "",
   theme: {
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
-    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -27,6 +18,16 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          50: "#E3F2FD",
+          100: "#BBDEFB",
+          200: "#90CAF9",
+          300: "#64B5F6",
+          400: "#42A5F5",
+          500: "#2196F3",
+          600: "#1E88E5",
+          700: "#1976D2",
+          800: "#1565C0",
+          900: "#0D47A1",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -52,29 +53,73 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-      keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
+        clinical: {
+          DEFAULT: "#4CAF50",
+          50: "#E8F5E9",
+          500: "#4CAF50",
+          600: "#43A047",
+          700: "#388E3C",
         },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
+        emergency: {
+          DEFAULT: "#F44336",
+          50: "#FFEBEE",
+          500: "#F44336",
+          600: "#E53935",
+          700: "#D32F2F",
         },
+        warning: {
+          DEFAULT: "#FFC107",
+          50: "#FFF8E1",
+          500: "#FFC107",
+          600: "#FFB300",
+        },
+        indigo: {
+          DEFAULT: "#4F46E5",
+          500: "#4F46E5",
+          600: "#4338CA",
+        },
+        cyan: {
+          DEFAULT: "#06B6D4",
+          500: "#06B6D4",
+        },
+        slate: {
+          750: "#1E293B",
+          850: "#141C2E",
+          900: "#0F172A",
+          950: "#0A1120",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "vote-up": "voteUp 0.3s ease-out",
+        "vote-down": "voteDown 0.3s ease-out",
+        "fade-in": "fadeIn 0.2s ease-out",
+        "slide-up": "slideUp 0.3s ease-out",
+      },
+      keyframes: {
+        voteUp: {
+          "0%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.3)" },
+          "100%": { transform: "scale(1)" },
+        },
+        voteDown: {
+          "0%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.3)" },
+          "100%": { transform: "scale(1)" },
+        },
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        slideUp: {
+          "0%": { transform: "translateY(10px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 };
-
 export default config;

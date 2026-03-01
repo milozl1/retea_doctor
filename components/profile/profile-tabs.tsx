@@ -52,7 +52,7 @@ export function ProfileTabs({
   userId,
   userName,
   userImageSrc,
-  karma,
+  karma: _karma,
   isVerified,
   posts,
   comments = [],
@@ -113,8 +113,9 @@ export function ProfileTabs({
                 <PostCard
                   key={post.id}
                   post={post}
-                  author={{ userId, userName, userImageSrc, karma, isVerified }}
-                  community={null}
+                  author={{ userId, userName, userImageSrc, experienceLevel: "student", isVerified }}
+                  community={{ id: 0, slug: "", name: "General", color: "#3b82f6" }}
+                  showCommunity={false}
                 />
               ))
             )}
@@ -164,8 +165,9 @@ export function ProfileTabs({
                 <PostCard
                   key={post.id}
                   post={post}
-                  author={{ userId, userName, userImageSrc, karma, isVerified }}
-                  community={null}
+                  author={{ userId, userName, userImageSrc, experienceLevel: "student", isVerified }}
+                  community={{ id: 0, slug: "", name: "General", color: "#3b82f6" }}
+                  showCommunity={false}
                 />
               ))
             )}

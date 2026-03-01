@@ -1,57 +1,51 @@
-import { db } from "@/db/drizzle";
-import { communities } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { getCommunities } from "@/db/queries";
 import { CommunityCard } from "@/components/community/community-card";
-import { defaultCommunities } from "@/config/communities";
-
-export const metadata = {
-  title: "Comunități — MedRețea",
-};
-
-async function getAllCommunities() {
-  try {
-    return await db
-      .select()
-      .from(communities)
-      .orderBy(desc(communities.memberCount));
-  } catch {
-    return [];
-  }
-}
+import { auth } from "@/lib/auth";
+import { db } from "@/db/drizzle";
+import { communityMemberships } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function CommunitiesPage() {
-  const allCommunities = await getAllCommunities();
+  const [allCommunities, { userId }] = await Promise.all([
+    getCommunities(),
+    auth(),
+  ]);
+
+  let userMemberIds: number[] = [];
+  if (userId) {
+    const memberships = await db
+      .select({ communityId: communityMemberships.communityId })
+      .from(communityMemberships)
+      .where(eq(communityMemberships.userId, userId));
+    userMemberIds = memberships.map((m) => m.communityId);
+  }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Comunități</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Descoperă și alătură-te comunităților medicale
+      <div className="glass p-6">
+        <h1 className="text-xl font-bold text-white mb-1">
+          🏛️ Comunități
+        </h1>
+        <p className="text-gray-400 text-sm">
+          Explorează comunitățile medicale și alătură-te discuțiilor.
         </p>
       </div>
 
-      {allCommunities.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
-          <div className="text-5xl mb-4">🏥</div>
-          <p>Nicio comunitate încă</p>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {allCommunities.map((community) => {
-            const config = defaultCommunities.find(
-              (c) => c.slug === community.slug
-            );
-            return (
-              <CommunityCard
-                key={community.id}
-                community={community}
-                icon={config?.icon}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {allCommunities.map((community) => (
+          <CommunityCard
+            key={community.id}
+            slug={community.slug}
+            name={community.name}
+            description={community.description}
+            color={community.color}
+            iconEmoji={community.iconSrc || undefined}
+            memberCount={community.memberCount}
+            postCount={community.postCount}
+            isMember={userMemberIds.includes(community.id)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,173 +1,163 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getPostById } from "@/db/queries";
+import { auth } from "@/lib/auth";
+import { getUserVoteOnPost, isPostBookmarked } from "@/db/queries";
 import { db } from "@/db/drizzle";
 import { posts, networkUsers, communities } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { eq, sql } from "drizzle-orm";
 import { updatePostSchema } from "@/lib/validators";
-import { eq, and, sql } from "drizzle-orm";
-import { z } from "zod";
 
-interface Params {
-  params: Promise<{ id: string }>;
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const postId = parseInt(params.id);
+  if (isNaN(postId)) {
+    return NextResponse.json({ error: "ID invalid" }, { status: 400 });
+  }
+
+  const result = await getPostById(postId);
+  if (!result) {
+    return NextResponse.json(
+      { error: "Postarea nu a fost găsită" },
+      { status: 404 }
+    );
+  }
+
+  const { userId } = await auth();
+  let userVote: "upvote" | "downvote" | null = null;
+  let bookmarked = false;
+
+  if (userId) {
+    const [vote, bm] = await Promise.all([
+      getUserVoteOnPost(userId, postId),
+      isPostBookmarked(userId, postId),
+    ]);
+    userVote = vote?.type ?? null;
+    bookmarked = bm;
+  }
+
+  return NextResponse.json({
+    ...result,
+    userVote,
+    bookmarked,
+  });
 }
 
-export async function GET(_request: NextRequest, { params }: Params) {
-  const start = Date.now();
-  try {
-    const { id } = await params;
-    const postId = parseInt(id);
-    if (isNaN(postId)) {
-      return NextResponse.json({ error: "ID invalid" }, { status: 400 });
-    }
-
-    const [result] = await db
-      .select({
-        post: posts,
-        author: {
-          userId: networkUsers.userId,
-          userName: networkUsers.userName,
-          userImageSrc: networkUsers.userImageSrc,
-          karma: networkUsers.karma,
-          isVerified: networkUsers.isVerified,
-          experienceLevel: networkUsers.experienceLevel,
-        },
-        community: {
-          id: communities.id,
-          slug: communities.slug,
-          name: communities.name,
-          color: communities.color,
-        },
-      })
-      .from(posts)
-      .leftJoin(networkUsers, eq(posts.userId, networkUsers.userId))
-      .leftJoin(communities, eq(posts.communityId, communities.id))
-      .where(and(eq(posts.id, postId), eq(posts.isDeleted, false)))
-      .limit(1);
-
-    if (!result) {
-      return NextResponse.json(
-        { error: "Postarea nu a fost găsită" },
-        { status: 404 }
-      );
-    }
-
-    // Increment view count
-    await db
-      .update(posts)
-      .set({ viewCount: sql`${posts.viewCount} + 1` })
-      .where(eq(posts.id, postId));
-
-    const response = NextResponse.json(result);
-    response.headers.set("Server-Timing", `db;dur=${Date.now() - start}`);
-    return response;
-  } catch (error) {
-    console.error("GET /api/posts/[id] error:", error);
-    return NextResponse.json({ error: "Eroare internă" }, { status: 500 });
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
   }
+
+  const postId = parseInt(params.id);
+  if (isNaN(postId)) {
+    return NextResponse.json({ error: "ID invalid" }, { status: 400 });
+  }
+
+  const [post] = await db
+    .select()
+    .from(posts)
+    .where(eq(posts.id, postId))
+    .limit(1);
+
+  if (!post) {
+    return NextResponse.json({ error: "Postarea nu există" }, { status: 404 });
+  }
+
+  // Check ownership or admin
+  const [user] = await db
+    .select({ role: networkUsers.role })
+    .from(networkUsers)
+    .where(eq(networkUsers.userId, userId))
+    .limit(1);
+
+  if (post.userId !== userId && user?.role !== "admin") {
+    return NextResponse.json({ error: "Nu ai permisiunea să editezi" }, { status: 403 });
+  }
+
+  const body = await request.json();
+  const parsed = updatePostSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.errors[0]?.message ?? "Date invalide" },
+      { status: 400 }
+    );
+  }
+
+  const updates: Record<string, any> = { editedAt: new Date(), updatedAt: new Date() };
+  if (parsed.data.title !== undefined) updates.title = parsed.data.title;
+  if (parsed.data.content !== undefined) updates.content = parsed.data.content;
+  if (parsed.data.tags !== undefined) updates.tags = parsed.data.tags;
+
+  // Admin-only fields: isPinned, isLocked, isDeleted
+  if (user?.role === "admin") {
+    if (typeof body.isPinned === "boolean") updates.isPinned = body.isPinned;
+    if (typeof body.isLocked === "boolean") updates.isLocked = body.isLocked;
+    if (typeof body.isDeleted === "boolean") updates.isDeleted = body.isDeleted;
+  }
+
+  const [updated] = await db
+    .update(posts)
+    .set(updates)
+    .where(eq(posts.id, postId))
+    .returning();
+
+  return NextResponse.json({ post: updated });
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
-  const start = Date.now();
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const postId = parseInt(id);
-    if (isNaN(postId)) {
-      return NextResponse.json({ error: "ID invalid" }, { status: 400 });
-    }
-
-    const body = await request.json();
-    const data = updatePostSchema.parse(body);
-
-    const [existing] = await db
-      .select()
-      .from(posts)
-      .where(and(eq(posts.id, postId), eq(posts.isDeleted, false)))
-      .limit(1);
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Postarea nu a fost găsită" },
-        { status: 404 }
-      );
-    }
-
-    if (existing.userId !== userId) {
-      return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
-    }
-
-    const [updated] = await db
-      .update(posts)
-      .set({ ...data, editedAt: new Date(), updatedAt: new Date() })
-      .where(eq(posts.id, postId))
-      .returning();
-
-    const response = NextResponse.json({ post: updated });
-    response.headers.set("Server-Timing", `db;dur=${Date.now() - start}`);
-    return response;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Date invalide" }, { status: 400 });
-    }
-    console.error("PUT /api/posts/[id] error:", error);
-    return NextResponse.json({ error: "Eroare internă" }, { status: 500 });
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
   }
-}
 
-export async function DELETE(request: NextRequest, { params }: Params) {
-  const start = Date.now();
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const postId = parseInt(id);
-    if (isNaN(postId)) {
-      return NextResponse.json({ error: "ID invalid" }, { status: 400 });
-    }
-
-    const [existing] = await db
-      .select()
-      .from(posts)
-      .where(and(eq(posts.id, postId), eq(posts.isDeleted, false)))
-      .limit(1);
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Postarea nu a fost găsită" },
-        { status: 404 }
-      );
-    }
-
-    if (existing.userId !== userId) {
-      // Check if admin
-      const [user] = await db
-        .select({ role: networkUsers.role })
-        .from(networkUsers)
-        .where(eq(networkUsers.userId, userId))
-        .limit(1);
-
-      if (!user || user.role !== "admin") {
-        return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
-      }
-    }
-
-    // Soft delete
-    await db
-      .update(posts)
-      .set({ isDeleted: true, updatedAt: new Date() })
-      .where(eq(posts.id, postId));
-
-    const response = NextResponse.json({ success: true });
-    response.headers.set("Server-Timing", `db;dur=${Date.now() - start}`);
-    return response;
-  } catch (error) {
-    console.error("DELETE /api/posts/[id] error:", error);
-    return NextResponse.json({ error: "Eroare internă" }, { status: 500 });
+  const postId = parseInt(params.id);
+  if (isNaN(postId)) {
+    return NextResponse.json({ error: "ID invalid" }, { status: 400 });
   }
+
+  const [post] = await db
+    .select()
+    .from(posts)
+    .where(eq(posts.id, postId))
+    .limit(1);
+
+  if (!post) {
+    return NextResponse.json({ error: "Postarea nu există" }, { status: 404 });
+  }
+
+  const [user] = await db
+    .select({ role: networkUsers.role })
+    .from(networkUsers)
+    .where(eq(networkUsers.userId, userId))
+    .limit(1);
+
+  if (post.userId !== userId && user?.role !== "admin") {
+    return NextResponse.json({ error: "Nu ai permisiunea să ștergi" }, { status: 403 });
+  }
+
+  await db
+    .update(posts)
+    .set({ isDeleted: true })
+    .where(eq(posts.id, postId));
+
+  // Decrement counts
+  await db
+    .update(networkUsers)
+    .set({ postCount: sql`GREATEST(${networkUsers.postCount} - 1, 0)` })
+    .where(eq(networkUsers.userId, post.userId));
+
+  await db
+    .update(communities)
+    .set({ postCount: sql`GREATEST(${communities.postCount} - 1, 0)` })
+    .where(eq(communities.id, post.communityId));
+
+  return NextResponse.json({ success: true });
 }

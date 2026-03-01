@@ -1,5 +1,5 @@
-import { createClient } from "./supabase-server";
 import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "./supabase-server";
 
 export interface User {
   id: string;
@@ -9,7 +9,8 @@ export interface User {
 }
 
 export async function auth(): Promise<{ userId: string | null }> {
-  const supabase = await createClient();
+  const supabase = createSupabaseServerClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -21,7 +22,8 @@ export async function authWithUser(): Promise<{
   userId: string | null;
   user: User | null;
 }> {
-  const supabase = await createClient();
+  const supabase = createSupabaseServerClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -30,18 +32,21 @@ export async function authWithUser(): Promise<{
     return { userId: null, user: null };
   }
 
-  const mappedUser: User = {
+  const userData: User = {
     id: user.id,
     email: user.email ?? null,
     firstName:
-      user.user_metadata?.first_name ??
+      user.user_metadata?.full_name ??
       user.user_metadata?.name ??
       user.email?.split("@")[0] ??
       "Utilizator",
-    imageUrl: user.user_metadata?.avatar_url ?? "",
+    imageUrl:
+      user.user_metadata?.avatar_url ??
+      user.user_metadata?.picture ??
+      "/default-avatar.png",
   };
 
-  return { userId: user.id, user: mappedUser };
+  return { userId: user.id, user: userData };
 }
 
 export async function currentUser(): Promise<User | null> {
@@ -49,10 +54,15 @@ export async function currentUser(): Promise<User | null> {
   return user;
 }
 
-export async function requireAuth(): Promise<User> {
-  const { user } = await authWithUser();
-  if (!user) {
+export async function requireAuth(): Promise<{
+  userId: string;
+  user: User;
+}> {
+  const { userId, user } = await authWithUser();
+
+  if (!userId || !user) {
     redirect("/auth/login");
   }
-  return user;
+
+  return { userId, user };
 }

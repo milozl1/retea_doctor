@@ -2,53 +2,70 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, Bell, Bookmark, PlusCircle } from "lucide-react";
+import { Home, Search, Plus, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useNotifications } from "@/hooks/use-notifications";
 
-const NAV_ITEMS = [
-  { href: "/", icon: Home, label: "Acasă" },
-  { href: "/search", icon: Search, label: "Căutare" },
-  { href: "/post/new", icon: PlusCircle, label: "Postează" },
-  { href: "/notifications", icon: Bell, label: "Notificări" },
-  { href: "/saved", icon: Bookmark, label: "Salvate" },
-];
+interface MobileNavProps {
+  userId?: string | null;
+}
 
-export function MobileNav() {
+export function MobileNav({ userId }: MobileNavProps) {
   const pathname = usePathname();
-  const { unreadCount } = useNotifications();
+
+  const items = [
+    { href: "/", label: "Feed", icon: Home },
+    { href: "/search", label: "Caută", icon: Search },
+    { href: "/post/new", label: "", icon: Plus, highlight: true },
+    { href: "/messages", label: "Mesaje", icon: MessageSquare },
+    {
+      href: userId ? `/u/${userId}` : "/auth/login",
+      label: "Profil",
+      icon: User,
+    },
+  ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 lg:hidden">
-      <div className="flex items-center justify-around h-14 px-2">
-        {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-          const isActive = pathname === href;
-          const isNotifications = href === "/notifications";
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
+      {/* Gradient fade */}
+      <div className="absolute -top-6 inset-x-0 h-6 bg-gradient-to-t from-[#040711] to-transparent pointer-events-none" />
+      <div className="bg-[#0a0e1a]/95 backdrop-blur-2xl border-t border-white/[0.04]">
+        <div className="flex items-center justify-around h-16 px-2">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
 
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors relative",
-                isActive ? "text-white" : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              <div className="relative">
-                <Icon className="h-5 w-5" />
-                {isNotifications && unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full h-3.5 w-3.5 flex items-center justify-center">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
+            if (item.highlight) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center justify-center -mt-5 w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-blue-500 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-300 hover:scale-105"
+                >
+                  <Icon className="h-5 w-5" />
+                </Link>
+              );
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all relative",
+                  isActive
+                    ? "text-primary"
+                    : "text-slate-600 hover:text-slate-400"
                 )}
-              </div>
-              <span className="text-[10px] font-medium">{label}</span>
-              {isActive && (
-                <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full" />
-              )}
-            </Link>
-          );
-        })}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-medium">{item.label}</span>
+                {isActive && (
+                  <div className="absolute -top-1 w-5 h-[2px] rounded-full bg-primary shadow-lg shadow-primary/50" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );

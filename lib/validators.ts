@@ -3,30 +3,39 @@ import { z } from "zod";
 export const createPostSchema = z.object({
   title: z
     .string()
-    .min(3, "Titlul trebuie să aibă cel puțin 3 caractere")
-    .max(300, "Titlul nu poate depăși 300 caractere"),
-  content: z.string().max(40000, "Conținutul nu poate depăși 40000 caractere").optional().default(""),
+    .min(5, "Titlul trebuie să aibă cel puțin 5 caractere")
+    .max(300, "Titlul nu poate depăși 300 de caractere"),
+  content: z
+    .string()
+    .max(40000, "Conținutul nu poate depăși 40.000 de caractere")
+    .default(""),
   type: z.enum([
     "case_study",
     "discussion",
     "article",
     "quick_question",
-    "external_link",
   ]),
-  communityId: z.number().int().positive(),
-  linkUrl: z.string().url().optional().nullable(),
-  tags: z.array(z.string().max(50)).max(10).optional().default([]),
-  caseStudyId: z.number().int().positive().optional().nullable(),
+  communityId: z.number().int().positive("Selectează o comunitate"),
+  tags: z
+    .array(z.string().max(50))
+    .max(5, "Maximum 5 tag-uri")
+    .default([]),
 });
 
 export const updatePostSchema = z.object({
   title: z
     .string()
-    .min(3)
-    .max(300)
+    .min(5, "Titlul trebuie să aibă cel puțin 5 caractere")
+    .max(300, "Titlul nu poate depăși 300 de caractere")
     .optional(),
-  content: z.string().max(40000).optional(),
-  tags: z.array(z.string().max(50)).max(10).optional(),
+  content: z
+    .string()
+    .max(40000, "Conținutul nu poate depăși 40.000 de caractere")
+    .optional(),
+  tags: z
+    .array(z.string().max(50))
+    .max(5, "Maximum 5 tag-uri")
+    .optional(),
 });
 
 export const createCommentSchema = z.object({
@@ -34,15 +43,15 @@ export const createCommentSchema = z.object({
   content: z
     .string()
     .min(1, "Comentariul nu poate fi gol")
-    .max(10000, "Comentariul nu poate depăși 10000 caractere"),
-  parentId: z.number().int().positive().optional().nullable(),
+    .max(10000, "Comentariul nu poate depăși 10.000 de caractere"),
+  parentId: z.number().int().positive().optional(),
 });
 
 export const updateCommentSchema = z.object({
   content: z
     .string()
-    .min(1)
-    .max(10000),
+    .min(1, "Comentariul nu poate fi gol")
+    .max(10000, "Comentariul nu poate depăși 10.000 de caractere"),
 });
 
 export const voteSchema = z.object({
@@ -50,25 +59,35 @@ export const voteSchema = z.object({
 });
 
 export const reportSchema = z.object({
-  reason: z.string().min(1).max(200),
-  details: z.string().max(1000).optional(),
+  reason: z
+    .string()
+    .min(5, "Motivul trebuie să aibă cel puțin 5 caractere")
+    .max(500, "Motivul nu poate depăși 500 de caractere"),
+  details: z
+    .string()
+    .max(2000, "Detaliile nu pot depăși 2.000 de caractere")
+    .optional(),
   postId: z.number().int().positive().optional(),
   commentId: z.number().int().positive().optional(),
 });
 
 export const searchSchema = z.object({
-  q: z.string().min(1).max(200),
-  communityId: z.number().int().positive().optional(),
+  q: z.string().min(2, "Caută cel puțin 2 caractere").max(200),
+  community: z.string().optional(),
   type: z
-    .enum(["case_study", "discussion", "article", "quick_question", "external_link"])
+    .enum([
+      "case_study",
+      "discussion",
+      "article",
+      "quick_question",
+    ])
     .optional(),
-  page: z.number().int().min(1).default(1),
-  limit: z.number().int().min(1).max(50).default(20),
 });
 
-export const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-  sort: z.enum(["hot", "new", "top"]).default("hot"),
-  communityId: z.coerce.number().int().positive().optional(),
-});
+export type CreatePostInput = z.infer<typeof createPostSchema>;
+export type UpdatePostInput = z.infer<typeof updatePostSchema>;
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;
+export type VoteInput = z.infer<typeof voteSchema>;
+export type ReportInput = z.infer<typeof reportSchema>;
+export type SearchInput = z.infer<typeof searchSchema>;

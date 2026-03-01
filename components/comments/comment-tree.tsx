@@ -1,17 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { CommentItem } from "./comment-item";
-import { useComments } from "@/hooks/use-comments";
 import { CommentForm } from "./comment-form";
-import { Loader2 } from "lucide-react";
-
-interface CommentTreeProps {
-  postId: number;
-  postAuthorId: string;
-  currentUserId?: string;
-  sort?: string;
-}
+import { MessageSquare } from "lucide-react";
 
 interface CommentData {
   comment: {
@@ -21,41 +14,48 @@ interface CommentData {
     parentId: number | null;
     content: string;
     depth: number;
-    upvotes: number;
-    downvotes: number;
     score: number;
     isDeleted: boolean;
-    editedAt: string | null;
+    editedAt: string | Date | null;
     createdAt: string | Date;
   };
   author: {
     userId: string;
     userName: string;
     userImageSrc: string;
-    isVerified?: boolean;
-  } | null;
+    experienceLevel: string;
+    isVerified: boolean;
+  };
+  userVote?: "upvote" | "downvote" | null;
   children?: CommentData[];
+}
+
+interface CommentTreeProps {
+  comments: CommentData[];
+  postId: number;
+  postAuthorId: string;
+  currentUserId?: string | null;
+  isLocked?: boolean;
 }
 
 function buildTree(comments: CommentData[]): CommentData[] {
   const map = new Map<number, CommentData>();
   const roots: CommentData[] = [];
 
-  comments.forEach((item) => {
-    map.set(item.comment.id, { ...item, children: [] });
+  // Initialize all comments with empty children
+  comments.forEach((c) => {
+    map.set(c.comment.id, { ...c, children: [] });
   });
 
-  map.forEach((item) => {
-    if (item.comment.parentId) {
-      const parent = map.get(item.comment.parentId);
-      if (parent) {
-        parent.children = parent.children ?? [];
-        parent.children.push(item);
-      } else {
-        roots.push(item);
-      }
+  // Build tree
+  comments.forEach((c) => {
+    const node = map.get(c.comment.id)!;
+    if (c.comment.parentId && map.has(c.comment.parentId)) {
+      const parent = map.get(c.comment.parentId)!;
+      parent.children = parent.children || [];
+      parent.children.push(node);
     } else {
-      roots.push(item);
+      roots.push(node);
     }
   });
 
@@ -63,45 +63,57 @@ function buildTree(comments: CommentData[]): CommentData[] {
 }
 
 export function CommentTree({
+  comments,
   postId,
   postAuthorId,
   currentUserId,
-  sort = "best",
+  isLocked = false,
 }: CommentTreeProps) {
-  const { comments, isLoading, mutate } = useComments(postId, sort);
+  const router = useRouter();
+
   const tree = useMemo(() => buildTree(comments), [comments]);
 
+  const handleRefresh = () => {
+    router.refresh();
+  };
+
   return (
-    <div id="comentarii" className="space-y-4">
-      {currentUserId && (
-        <div className="mb-6">
+    <div className="space-y-4">
+      {/* Comment form */}
+      {!isLocked && (
+        <div className="mb-4">
           <CommentForm
             postId={postId}
-            onSuccess={() => mutate()}
-            placeholder="Adaugă un comentariu..."
+            onSuccess={handleRefresh}
           />
         </div>
       )}
 
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+      {isLocked && (
+        <div className="text-center text-sm text-slate-500 py-3">
+          🔒 Comentariile sunt blocate pentru această postare
         </div>
-      ) : tree.length === 0 ? (
-        <div className="text-center py-8 text-slate-500">
-          <p>Niciun comentariu încă. Fii primul!</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {tree.map((item) => (
+      )}
+
+      {/* Comments */}
+      {tree.length > 0 ? (
+        <div className="divide-y divide-white/5">
+          {tree.map((comment) => (
             <CommentItem
-              key={item.comment.id}
-              data={item}
+              key={comment.comment.id}
+              data={comment}
               postAuthorId={postAuthorId}
               currentUserId={currentUserId}
-              onRefresh={() => mutate()}
+              onRefresh={handleRefresh}
             />
           ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 space-y-2">
+          <MessageSquare className="h-8 w-8 text-slate-600 mx-auto" />
+          <p className="text-sm text-slate-500">
+            Niciun comentariu încă. Fii primul!
+          </p>
         </div>
       )}
     </div>

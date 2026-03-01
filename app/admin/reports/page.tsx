@@ -1,0 +1,124 @@
+import { db } from "@/db/drizzle";
+import { networkUsers, reports } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, Clock, CheckCircle } from "lucide-react";
+import { timeAgo } from "@/lib/utils";
+import { ReportActions } from "@/components/admin/report-actions";
+
+export default async function AdminReportsPage({
+  searchParams,
+}: {
+  searchParams: { status?: string };
+}) {
+  const status = searchParams.status || "pending";
+
+  const allReports = await db
+    .select({
+      report: reports,
+      reporter: {
+        userId: networkUsers.userId,
+        userName: networkUsers.userName,
+      },
+    })
+    .from(reports)
+    .innerJoin(networkUsers, eq(reports.reporterId, networkUsers.userId))
+    .where(eq(reports.status, status as any))
+    .orderBy(desc(reports.createdAt))
+    .limit(50);
+
+  const statusColors = {
+    pending: "bg-yellow-500/20 text-yellow-400",
+    reviewed: "bg-blue-500/20 text-blue-400",
+    resolved: "bg-green-500/20 text-green-400",
+    dismissed: "bg-gray-500/20 text-gray-400",
+  };
+
+  return (
+    <div className="p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <h1 className="text-xl font-bold text-white">Rapoarte</h1>
+
+        {/* Status tabs */}
+        <div className="flex gap-2">
+          {["pending", "reviewed", "resolved", "dismissed"].map((s) => (
+            <Link
+              key={s}
+              href={`/admin/reports?status=${s}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                status === s
+                  ? "bg-white/10 text-white"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {s === "pending"
+                ? "Pendinte"
+                : s === "reviewed"
+                  ? "Verificate"
+                  : s === "resolved"
+                    ? "Rezolvate"
+                    : "Respinse"}
+            </Link>
+          ))}
+        </div>
+
+        {allReports.length > 0 ? (
+          <div className="space-y-3">
+            {allReports.map(({ report, reporter }) => (
+              <div key={report.id} className="glass-card p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                      <span className="text-sm font-medium text-white">
+                        {report.reason}
+                      </span>
+                      <Badge
+                        className={statusColors[report.status as keyof typeof statusColors]}
+                      >
+                        {report.status}
+                      </Badge>
+                    </div>
+                    {report.details && (
+                      <p className="text-sm text-slate-400 mt-1">
+                        {report.details}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                      <span>
+                        Raportat de {reporter.userName}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {timeAgo(report.createdAt)}
+                      </span>
+                      {report.postId && (
+                        <Link
+                          href={`/post/${report.postId}`}
+                          className="text-blue-400 hover:underline"
+                        >
+                          Vezi postarea →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  {report.status === "pending" && (
+                    <ReportActions reportId={report.id} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="glass-card p-12 text-center">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+            <p className="text-slate-400">
+              Niciun raport {status === "pending" ? "pendinte" : ""}.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

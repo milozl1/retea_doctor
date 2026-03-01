@@ -1,17 +1,18 @@
 import {
   pgTable,
+  pgEnum,
+  serial,
   text,
   integer,
   boolean,
   timestamp,
-  serial,
-  pgEnum,
-  uniqueIndex,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // ==================== ENUMS ====================
+
 export const postTypeEnum = pgEnum("post_type", [
   "case_study",
   "discussion",
@@ -37,13 +38,18 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "new_post_community",
 ]);
 
-export const userRoleEnum = pgEnum("user_role", ["user", "moderator", "admin"]);
+export const userRoleEnum = pgEnum("user_role", [
+  "user",
+  "moderator",
+  "admin",
+]);
 
 // ==================== NETWORK USERS ====================
+
 export const networkUsers = pgTable("network_users", {
   userId: text("user_id").primaryKey(),
   userName: text("user_name").notNull(),
-  userImageSrc: text("user_image_src").notNull().default(""),
+  userImageSrc: text("user_image_src").notNull().default("/default-avatar.png"),
   bio: text("bio"),
   specialization: text("specialization"),
   experienceLevel: text("experience_level").notNull().default("student"),
@@ -57,66 +63,79 @@ export const networkUsers = pgTable("network_users", {
 });
 
 // ==================== COMMUNITIES ====================
-export const communities = pgTable("communities", {
-  id: serial("id").primaryKey(),
-  slug: text("slug").notNull().unique(),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  rules: text("rules").notNull().default(""),
-  iconSrc: text("icon_src"),
-  color: text("color").notNull().default("#2196F3"),
-  specializationId: integer("specialization_id"),
-  memberCount: integer("member_count").notNull().default(0),
-  postCount: integer("post_count").notNull().default(0),
-  isDefault: boolean("is_default").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+
+export const communities = pgTable(
+  "communities",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    rules: text("rules").notNull().default(""),
+    iconSrc: text("icon_src"),
+    color: text("color").notNull().default("#2196F3"),
+    specializationId: integer("specialization_id"),
+    memberCount: integer("member_count").notNull().default(0),
+    postCount: integer("post_count").notNull().default(0),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex("communities_slug_idx").on(table.slug),
+  })
+);
 
 // ==================== COMMUNITY MEMBERSHIPS ====================
+
 export const communityMemberships = pgTable(
   "community_memberships",
   {
     id: serial("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => networkUsers.userId),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
     communityId: integer("community_id")
       .notNull()
-      .references(() => communities.id),
-    role: text("role").notNull().default("member"),
+      .references(() => communities.id, { onDelete: "cascade" }),
+    role: text("membership_role").notNull().default("member"),
     joinedAt: timestamp("joined_at").notNull().defaultNow(),
   },
-  (t) => ({
-    userCommunityUnique: uniqueIndex("community_memberships_user_community_unique").on(
-      t.userId,
-      t.communityId
+  (table) => ({
+    userCommunityIdx: uniqueIndex("membership_user_community_idx").on(
+      table.userId,
+      table.communityId
     ),
-    communityIdx: index("community_memberships_community_idx").on(t.communityId),
+    communityIdx: index("membership_community_idx").on(table.communityId),
   })
 );
 
 // ==================== POSTS ====================
+
 export const posts = pgTable(
   "posts",
   {
     id: serial("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => networkUsers.userId),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
     communityId: integer("community_id")
       .notNull()
-      .references(() => communities.id),
+      .references(() => communities.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     content: text("content").notNull().default(""),
     type: postTypeEnum("type").notNull().default("discussion"),
     linkUrl: text("link_url"),
     imageSrc: text("image_src"),
     caseStudyId: integer("case_study_id"),
-    tags: text("tags").array().notNull().default([]),
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     upvotes: integer("upvotes").notNull().default(0),
     downvotes: integer("downvotes").notNull().default(0),
     score: integer("score").notNull().default(0),
+    hotScore: integer("hot_score").notNull().default(0),
     commentCount: integer("comment_count").notNull().default(0),
     viewCount: integer("view_count").notNull().default(0),
     isPinned: boolean("is_pinned").notNull().default(false),
@@ -126,27 +145,31 @@ export const posts = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => ({
+  (table) => ({
     communityCreatedIdx: index("posts_community_created_idx").on(
-      t.communityId,
-      t.createdAt
+      table.communityId,
+      table.createdAt
     ),
-    userIdx: index("posts_user_idx").on(t.userId),
-    scoreCreatedIdx: index("posts_score_created_idx").on(t.score, t.createdAt),
+    userIdx: index("posts_user_idx").on(table.userId),
+    scoreCreatedIdx: index("posts_score_created_idx").on(
+      table.score,
+      table.createdAt
+    ),
   })
 );
 
 // ==================== COMMENTS ====================
+
 export const comments = pgTable(
   "comments",
   {
     id: serial("id").primaryKey(),
     postId: integer("post_id")
       .notNull()
-      .references(() => posts.id),
+      .references(() => posts.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => networkUsers.userId),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
     parentId: integer("parent_id"),
     content: text("content").notNull(),
     depth: integer("depth").notNull().default(0),
@@ -157,149 +180,269 @@ export const comments = pgTable(
     editedAt: timestamp("edited_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => ({
-    postCreatedIdx: index("comments_post_created_idx").on(t.postId, t.createdAt),
-    userIdx: index("comments_user_idx").on(t.userId),
-    parentIdx: index("comments_parent_idx").on(t.parentId),
+  (table) => ({
+    postCreatedIdx: index("comments_post_created_idx").on(
+      table.postId,
+      table.createdAt
+    ),
+    userIdx: index("comments_user_idx").on(table.userId),
+    parentIdx: index("comments_parent_idx").on(table.parentId),
   })
 );
 
 // ==================== VOTES ====================
+
 export const votes = pgTable(
   "votes",
   {
     id: serial("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => networkUsers.userId),
-    postId: integer("post_id").references(() => posts.id),
-    commentId: integer("comment_id").references(() => comments.id),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    postId: integer("post_id").references(() => posts.id, {
+      onDelete: "cascade",
+    }),
+    commentId: integer("comment_id").references(() => comments.id, {
+      onDelete: "cascade",
+    }),
     type: voteTypeEnum("type").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => ({
-    userPostUnique: uniqueIndex("votes_user_post_unique").on(t.userId, t.postId),
-    userCommentUnique: uniqueIndex("votes_user_comment_unique").on(
-      t.userId,
-      t.commentId
-    ),
+  (table) => ({
+    userPostIdx: uniqueIndex("votes_user_post_idx")
+      .on(table.userId, table.postId)
+      .where(sql`post_id IS NOT NULL`),
+    userCommentIdx: uniqueIndex("votes_user_comment_idx")
+      .on(table.userId, table.commentId)
+      .where(sql`comment_id IS NOT NULL`),
   })
 );
 
 // ==================== BOOKMARKS ====================
+
 export const bookmarks = pgTable(
   "bookmarks",
   {
     id: serial("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => networkUsers.userId),
-    postId: integer("post_id").references(() => posts.id),
-    commentId: integer("comment_id").references(() => comments.id),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    postId: integer("post_id").references(() => posts.id, {
+      onDelete: "cascade",
+    }),
+    commentId: integer("comment_id").references(() => comments.id, {
+      onDelete: "cascade",
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => ({
-    userPostUnique: uniqueIndex("bookmarks_user_post_unique").on(
-      t.userId,
-      t.postId
+  (table) => ({
+    userPostIdx: uniqueIndex("bookmarks_user_post_idx").on(
+      table.userId,
+      table.postId
     ),
-    userCommentUnique: uniqueIndex("bookmarks_user_comment_unique").on(
-      t.userId,
-      t.commentId
+    userCommentIdx: uniqueIndex("bookmarks_user_comment_idx").on(
+      table.userId,
+      table.commentId
     ),
   })
 );
 
 // ==================== NOTIFICATIONS ====================
+
 export const notifications = pgTable(
   "notifications",
   {
     id: serial("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => networkUsers.userId),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
     actorId: text("actor_id")
       .notNull()
-      .references(() => networkUsers.userId),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
     type: notificationTypeEnum("type").notNull(),
-    postId: integer("post_id").references(() => posts.id),
-    commentId: integer("comment_id").references(() => comments.id),
+    postId: integer("post_id").references(() => posts.id, {
+      onDelete: "cascade",
+    }),
+    commentId: integer("comment_id").references(() => comments.id, {
+      onDelete: "cascade",
+    }),
     message: text("message").notNull(),
     isRead: boolean("is_read").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => ({
+  (table) => ({
     userReadCreatedIdx: index("notifications_user_read_created_idx").on(
-      t.userId,
-      t.isRead,
-      t.createdAt
+      table.userId,
+      table.isRead,
+      table.createdAt
     ),
     userCreatedIdx: index("notifications_user_created_idx").on(
-      t.userId,
-      t.createdAt
+      table.userId,
+      table.createdAt
     ),
   })
 );
 
 // ==================== REPORTS ====================
+
 export const reports = pgTable(
   "reports",
   {
     id: serial("id").primaryKey(),
     reporterId: text("reporter_id")
       .notNull()
-      .references(() => networkUsers.userId),
-    postId: integer("post_id").references(() => posts.id),
-    commentId: integer("comment_id").references(() => comments.id),
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    postId: integer("post_id").references(() => posts.id, {
+      onDelete: "cascade",
+    }),
+    commentId: integer("comment_id").references(() => comments.id, {
+      onDelete: "cascade",
+    }),
     reason: text("reason").notNull(),
     details: text("details"),
     status: reportStatusEnum("status").notNull().default("pending"),
-    resolvedBy: text("resolved_by").references(() => networkUsers.userId),
+    resolvedBy: text("resolved_by"),
     resolvedAt: timestamp("resolved_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => ({
+  (table) => ({
     statusCreatedIdx: index("reports_status_created_idx").on(
-      t.status,
-      t.createdAt
+      table.status,
+      table.createdAt
     ),
   })
 );
 
 // ==================== POST VIEWS ====================
+
 export const postViews = pgTable(
   "post_views",
   {
     id: serial("id").primaryKey(),
     postId: integer("post_id")
       .notNull()
-      .references(() => posts.id),
-    userId: text("user_id").references(() => networkUsers.userId),
+      .references(() => posts.id, { onDelete: "cascade" }),
+    userId: text("user_id"),
     viewedAt: timestamp("viewed_at").notNull().defaultNow(),
   },
-  (t) => ({
-    postUserUnique: uniqueIndex("post_views_post_user_unique").on(
-      t.postId,
-      t.userId
+  (table) => ({
+    postUserIdx: uniqueIndex("post_views_post_user_idx").on(
+      table.postId,
+      table.userId
+    ),
+  })
+);
+
+// ==================== FOLLOWS ====================
+
+export const follows = pgTable(
+  "follows",
+  {
+    id: serial("id").primaryKey(),
+    followerId: text("follower_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    followingId: text("following_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    followerFollowingIdx: uniqueIndex("follows_follower_following_idx").on(
+      table.followerId,
+      table.followingId
+    ),
+    followingIdx: index("follows_following_idx").on(table.followingId),
+  })
+);
+
+// ==================== MESSAGES ====================
+
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const conversationParticipants = pgTable(
+  "conversation_participants",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    lastReadAt: timestamp("last_read_at"),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    convUserIdx: uniqueIndex("conv_participants_conv_user_idx").on(
+      table.conversationId,
+      table.userId
+    ),
+    userIdx: index("conv_participants_user_idx").on(table.userId),
+  })
+);
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => networkUsers.userId, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    isDeleted: boolean("is_deleted").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    convCreatedIdx: index("messages_conv_created_idx").on(
+      table.conversationId,
+      table.createdAt
     ),
   })
 );
 
 // ==================== RELATIONS ====================
+
 export const networkUsersRelations = relations(networkUsers, ({ many }) => ({
   posts: many(posts),
   comments: many(comments),
   votes: many(votes),
   bookmarks: many(bookmarks),
+  notifications: many(notifications, { relationName: "recipient" }),
+  actedNotifications: many(notifications, { relationName: "actor" }),
   memberships: many(communityMemberships),
-  notifications: many(notifications),
   reports: many(reports),
+  followers: many(follows, { relationName: "following" }),
+  following: many(follows, { relationName: "follower" }),
+  conversationParticipants: many(conversationParticipants),
+  sentMessages: many(messages),
 }));
 
 export const communitiesRelations = relations(communities, ({ many }) => ({
   posts: many(posts),
   memberships: many(communityMemberships),
 }));
+
+export const communityMembershipsRelations = relations(
+  communityMemberships,
+  ({ one }) => ({
+    user: one(networkUsers, {
+      fields: [communityMemberships.userId],
+      references: [networkUsers.userId],
+    }),
+    community: one(communities, {
+      fields: [communityMemberships.communityId],
+      references: [communities.id],
+    }),
+  })
+);
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
   author: one(networkUsers, {
@@ -313,6 +456,7 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
   comments: many(comments),
   votes: many(votes),
   bookmarks: many(bookmarks),
+  views: many(postViews),
 }));
 
 export const commentsRelations = relations(comments, ({ one, many }) => ({
@@ -331,4 +475,120 @@ export const commentsRelations = relations(comments, ({ one, many }) => ({
   }),
   children: many(comments, { relationName: "parentChild" }),
   votes: many(votes),
+}));
+
+export const votesRelations = relations(votes, ({ one }) => ({
+  user: one(networkUsers, {
+    fields: [votes.userId],
+    references: [networkUsers.userId],
+  }),
+  post: one(posts, {
+    fields: [votes.postId],
+    references: [posts.id],
+  }),
+  comment: one(comments, {
+    fields: [votes.commentId],
+    references: [comments.id],
+  }),
+}));
+
+export const bookmarksRelations = relations(bookmarks, ({ one }) => ({
+  user: one(networkUsers, {
+    fields: [bookmarks.userId],
+    references: [networkUsers.userId],
+  }),
+  post: one(posts, {
+    fields: [bookmarks.postId],
+    references: [posts.id],
+  }),
+  comment: one(comments, {
+    fields: [bookmarks.commentId],
+    references: [comments.id],
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(networkUsers, {
+    fields: [notifications.userId],
+    references: [networkUsers.userId],
+    relationName: "recipient",
+  }),
+  actor: one(networkUsers, {
+    fields: [notifications.actorId],
+    references: [networkUsers.userId],
+    relationName: "actor",
+  }),
+  post: one(posts, {
+    fields: [notifications.postId],
+    references: [posts.id],
+  }),
+  comment: one(comments, {
+    fields: [notifications.commentId],
+    references: [comments.id],
+  }),
+}));
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+  reporter: one(networkUsers, {
+    fields: [reports.reporterId],
+    references: [networkUsers.userId],
+  }),
+  post: one(posts, {
+    fields: [reports.postId],
+    references: [posts.id],
+  }),
+  comment: one(comments, {
+    fields: [reports.commentId],
+    references: [comments.id],
+  }),
+}));
+
+export const postViewsRelations = relations(postViews, ({ one }) => ({
+  post: one(posts, {
+    fields: [postViews.postId],
+    references: [posts.id],
+  }),
+}));
+
+export const followsRelations = relations(follows, ({ one }) => ({
+  follower: one(networkUsers, {
+    fields: [follows.followerId],
+    references: [networkUsers.userId],
+    relationName: "follower",
+  }),
+  following: one(networkUsers, {
+    fields: [follows.followingId],
+    references: [networkUsers.userId],
+    relationName: "following",
+  }),
+}));
+
+export const conversationsRelations = relations(conversations, ({ many }) => ({
+  participants: many(conversationParticipants),
+  messages: many(messages),
+}));
+
+export const conversationParticipantsRelations = relations(
+  conversationParticipants,
+  ({ one }) => ({
+    conversation: one(conversations, {
+      fields: [conversationParticipants.conversationId],
+      references: [conversations.id],
+    }),
+    user: one(networkUsers, {
+      fields: [conversationParticipants.userId],
+      references: [networkUsers.userId],
+    }),
+  })
+);
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+  sender: one(networkUsers, {
+    fields: [messages.senderId],
+    references: [networkUsers.userId],
+  }),
 }));

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
   }
 
-  const rl = rateLimit(`moderation:${userId}`, { max: 60, windowMs: 60000 });
+  const rl = rateLimit(`moderation:${userId}`, { maxRequests: 60, windowMs: 60000 });
   if (!rl.success) {
     return NextResponse.json({ error: "Prea multe cereri" }, { status: 429 });
   }

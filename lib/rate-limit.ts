@@ -1,49 +1,54 @@
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const rateLimitMap = new Map<
+  string,
+  { count: number; lastReset: number }
+>();
 
-export interface RateLimitOptions {
+interface RateLimitConfig {
   windowMs: number;
-  max: number;
+  maxRequests: number;
 }
 
-// On-demand cleanup of expired entries to avoid persistent intervals in serverless environments
-function cleanupExpired(): void {
-  const now = Date.now();
-  const keysToDelete: string[] = [];
-  rateLimitMap.forEach((value, key) => {
-    if (now > value.resetAt) {
-      keysToDelete.push(key);
-    }
-  });
-  keysToDelete.forEach((key) => rateLimitMap.delete(key));
-}
+export const RATE_LIMITS = {
+  vote: { windowMs: 60_000, maxRequests: 30 },
+  post: { windowMs: 3_600_000, maxRequests: 5 },
+  comment: { windowMs: 60_000, maxRequests: 20 },
+  search: { windowMs: 60_000, maxRequests: 30 },
+  default: { windowMs: 60_000, maxRequests: 60 },
+} as const;
 
 export function rateLimit(
   identifier: string,
-  options: RateLimitOptions
-): { success: boolean; remaining: number; resetAt: number } {
+  config: RateLimitConfig = RATE_LIMITS.default
+): { success: boolean; remaining: number; reset: number } {
   const now = Date.now();
+  const key = identifier;
+  const entry = rateLimitMap.get(key);
 
-  // Clean up expired entries on each call when map is large
-  if (rateLimitMap.size > 1000) {
-    cleanupExpired();
+  if (!entry || now - entry.lastReset >= config.windowMs) {
+    rateLimitMap.set(key, { count: 1, lastReset: now });
+    return {
+      success: true,
+      remaining: config.maxRequests - 1,
+      reset: now + config.windowMs,
+    };
   }
 
-  const existing = rateLimitMap.get(identifier);
-
-  if (!existing || now > existing.resetAt) {
-    const resetAt = now + options.windowMs;
-    rateLimitMap.set(identifier, { count: 1, resetAt });
-    return { success: true, remaining: options.max - 1, resetAt };
+  if (entry.count >= config.maxRequests) {
+    return {
+      success: false,
+      remaining: 0,
+      reset: entry.lastReset + config.windowMs,
+    };
   }
 
-  if (existing.count >= options.max) {
-    return { success: false, remaining: 0, resetAt: existing.resetAt };
-  }
-
-  existing.count++;
+  entry.count++;
   return {
     success: true,
-    remaining: options.max - existing.count,
-    resetAt: existing.resetAt,
+    remaining: config.maxRequests - entry.count,
+    reset: entry.lastReset + config.windowMs,
   };
 }
+
+// Note: In-memory rate limiting only works in Node.js long-running process mode.
+// For serverless (Vercel), each invocation gets a fresh Map.
+// For production serverless, replace with Redis-based rate limiting.

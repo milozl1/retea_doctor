@@ -1,113 +1,62 @@
-"use client";
-
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 
-interface VoteState {
-  upvotes: number;
-  downvotes: number;
-  score: number;
-  userVote: "upvote" | "downvote" | null;
-}
-
-interface UseVoteOptions {
-  postId?: number;
-  commentId?: number;
-  initialUpvotes: number;
-  initialDownvotes: number;
-  initialScore: number;
-  initialUserVote?: "upvote" | "downvote" | null;
-}
-
-export function useVote({
-  postId,
-  commentId,
-  initialUpvotes,
-  initialDownvotes,
-  initialScore,
-  initialUserVote = null,
-}: UseVoteOptions) {
-  const [state, setState] = useState<VoteState>({
-    upvotes: initialUpvotes,
-    downvotes: initialDownvotes,
-    score: initialScore,
-    userVote: initialUserVote,
-  });
-  const [isLoading, setIsLoading] = useState(false);
+export function useVote(
+  initialScore: number,
+  initialVote: "upvote" | "downvote" | null,
+  id: number,
+  type: "post" | "comment"
+) {
+  const [score, setScore] = useState(initialScore);
+  const [userVote, setUserVote] = useState(initialVote);
+  const [isVoting, setIsVoting] = useState(false);
 
   const vote = useCallback(
-    async (type: "upvote" | "downvote") => {
-      if (isLoading) return;
+    async (voteType: "upvote" | "downvote") => {
+      if (isVoting) return;
+      setIsVoting(true);
 
-      // Optimistic update
-      const previousState = { ...state };
-      setState((prev) => {
-        let newUpvotes = prev.upvotes;
-        let newDownvotes = prev.downvotes;
+      const prevScore = score;
+      const prevVote = userVote;
 
-        if (prev.userVote === type) {
-          // Toggle off
-          if (type === "upvote") newUpvotes--;
-          else newDownvotes--;
-          return {
-            upvotes: newUpvotes,
-            downvotes: newDownvotes,
-            score: newUpvotes - newDownvotes,
-            userVote: null,
-          };
-        } else {
-          if (prev.userVote) {
-            // Change vote
-            if (prev.userVote === "upvote") newUpvotes--;
-            else newDownvotes--;
-          }
-          if (type === "upvote") newUpvotes++;
-          else newDownvotes++;
-          return {
-            upvotes: newUpvotes,
-            downvotes: newDownvotes,
-            score: newUpvotes - newDownvotes,
-            userVote: type,
-          };
-        }
-      });
+      let newScore = score;
+      let newVote: "upvote" | "downvote" | null = voteType;
 
-      setIsLoading(true);
+      if (userVote === voteType) {
+        newVote = null;
+        newScore = voteType === "upvote" ? score - 1 : score + 1;
+      } else if (userVote) {
+        newScore = voteType === "upvote" ? score + 2 : score - 2;
+      } else {
+        newScore = voteType === "upvote" ? score + 1 : score - 1;
+      }
+
+      setScore(newScore);
+      setUserVote(newVote);
+
       try {
-        const url = postId
-          ? `/api/posts/${postId}/vote`
-          : `/api/comments/${commentId}/vote`;
+        const endpoint =
+          type === "post"
+            ? `/api/posts/${id}/vote`
+            : `/api/comments/${id}/vote`;
 
-        const response = await fetch(url, {
+        const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type }),
+          body: JSON.stringify({ type: voteType }),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error ?? "Eroare la vot");
-        }
-
-        const data = await response.json();
-        setState({
-          upvotes: data.upvotes,
-          downvotes: data.downvotes,
-          score: data.score,
-          userVote: data.userVote,
-        });
-      } catch (error) {
-        // Revert on error
-        setState(previousState);
-        toast.error(
-          error instanceof Error ? error.message : "Eroare la vot"
-        );
+        if (!res.ok) throw new Error("Vote failed");
+      } catch {
+        setScore(prevScore);
+        setUserVote(prevVote);
+        toast.error("Nu s-a putut înregistra votul");
       } finally {
-        setIsLoading(false);
+        setIsVoting(false);
       }
     },
-    [state, isLoading, postId, commentId]
+    [id, type, score, userVote, isVoting]
   );
 
-  return { ...state, vote, isLoading };
+  return { score, userVote, vote, isVoting };
 }
